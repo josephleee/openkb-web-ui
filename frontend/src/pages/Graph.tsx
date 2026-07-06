@@ -1,12 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import ForceGraph2D, {
   type ForceGraphMethods,
   type LinkObject,
@@ -50,19 +43,24 @@ export default function GraphPage() {
   const [search, setSearch] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const fgRef = useRef<ForceGraphMethods<FgNode, FgLink>>();
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const didFitRef = useRef(false);
 
-  useEffect(() => {
-    const el = containerRef.current;
+  // Callback ref, not useEffect: the container is not mounted during the
+  // loading/error early-returns, so a mount-time useEffect would find a null
+  // ref and never observe. A callback ref fires whenever the node actually
+  // mounts (once the graph resolves), so size is always measured.
+  const containerRef = useCallback((el: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const rect = entries[0].contentRect;
       setSize({ width: rect.width, height: rect.height });
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   }, []);
 
   // d3-force mutates node/link objects in place — always hand it copies.
@@ -254,6 +252,15 @@ export default function GraphPage() {
               onNodeClick={(node) => navigate(`/wiki/${node.id}`)}
               onBackgroundClick={() => setHighlightId(null)}
               cooldownTicks={200}
+              onEngineStop={() => {
+                // Frame all nodes once the layout settles, but only the first
+                // time — dragging a node reheats and re-stops the engine, and
+                // refitting then would fight the user's pan/zoom.
+                if (!didFitRef.current) {
+                  didFitRef.current = true;
+                  fgRef.current?.zoomToFit(400, 60);
+                }
+              }}
             />
           )}
 

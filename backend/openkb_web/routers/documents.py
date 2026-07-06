@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from openkb.agent.tools import parse_pages
 from openkb.cli import SUPPORTED_EXTENSIONS, _display_type
 
-from openkb_web.jobqueue import _openkb_argv
+from openkb_web.jobqueue import _openkb_argv, openkb_env
 
 router = APIRouter()
 
@@ -159,16 +159,21 @@ async def upload_document(file: UploadFile, request: Request) -> dict[str, str]:
             status_code=400, detail=f"Unsupported file type; allowed: {allowed}"
         )
 
-    # Per-upload dir preserving the original filename: the filename is the
-    # document's identity in OpenKB (doc_name = sanitized stem). Lives under
-    # <kb>/.openkb-web-uploads/, outside wiki/.
-    upload_dir = kb.uploads_dir / uuid.uuid4().hex
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / filename
+    # Stage at a STABLE path keyed by filename: OpenKB identifies a document by
+    # its source path (converter.resolve_doc_name), so re-uploading the same
+    # filename must land on the same path for the document to overwrite in
+    # place rather than fork a "<stem>-<hash>" duplicate. Written via a temp
+    # sibling + atomic replace; the single-worker job queue serializes adds.
+    # Lives under <kb>/.openkb-web-uploads/, outside wiki/. Not auto-deleted —
+    # kept so a later re-upload overwrites in place (and a failed add can be
+    # inspected/retried); it is tiny next to raw/, which already holds a copy.
+    kb.uploads_dir.mkdir(parents=True, exist_ok=True)
+    dest = kb.uploads_dir / filename
+    tmp = kb.uploads_dir / f".{uuid.uuid4().hex}.part"
 
     size = 0
     try:
-        with dest.open("wb") as out:
+        with tmp.open("wb") as out:
             while chunk := await file.read(_UPLOAD_CHUNK):
                 size += len(chunk)
                 if size > MAX_UPLOAD_BYTES:
@@ -177,13 +182,13 @@ async def upload_document(file: UploadFile, request: Request) -> dict[str, str]:
                         detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB upload limit",
                     )
                 out.write(chunk)
+        os.replace(tmp, dest)
     except HTTPException:
-        dest.unlink(missing_ok=True)
-        upload_dir.rmdir()
+        tmp.unlink(missing_ok=True)
         raise
 
     job = request.app.state.jobqueue.enqueue(
-        "add", f"Add {filename}", ["add", str(dest)], cleanup_dir=upload_dir
+        "add", f"Add {filename}", ["add", str(dest)]
     )
     return {"job_id": job.id}
 
@@ -209,9 +214,6 @@ async def remove_plan(doc_name: str, request: Request) -> list[dict[str, str]]:
     _check_doc_name(doc_name)
     _busy_guard(request)
 
-    env = dict(os.environ)
-    env["OPENKB_DIR"] = str(kb.kb_dir)
-    env["PYTHONUNBUFFERED"] = "1"
     proc = await asyncio.create_subprocess_exec(
         *_openkb_argv(),
         "remove",
@@ -220,7 +222,7 @@ async def remove_plan(doc_name: str, request: Request) -> list[dict[str, str]]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         stdin=asyncio.subprocess.DEVNULL,
-        env=env,
+        env=openkb_env(kb.kb_dir),
     )
     try:
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=REMOVE_PLAN_TIMEOUT)

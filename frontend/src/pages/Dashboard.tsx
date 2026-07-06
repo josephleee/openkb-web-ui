@@ -7,19 +7,16 @@ import { EmptyState, ErrorState, Spinner } from "../components/States";
 import { formatRelative } from "../lib/format";
 
 const OPERATION_STYLES: Record<string, string> = {
-  add: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  remove: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  recompile: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  chat: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  query: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  lint: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  add: "chip-emerald",
+  remove: "chip-rose",
+  recompile: "chip-sky",
+  chat: "chip-violet",
+  query: "chip-violet",
+  lint: "chip-amber",
 };
 
 function operationStyle(op: string): string {
-  return (
-    OPERATION_STYLES[op.toLowerCase()] ??
-    "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-  );
+  return OPERATION_STYLES[op.toLowerCase()] ?? "chip-neutral";
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -42,13 +39,9 @@ function HealthSection({ label, items }: { label: string; items: string[] }) {
       <summary className="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-sm">
         <span className="text-slate-600 dark:text-slate-300">{label}</span>
         {items.length === 0 ? (
-          <span className="chip bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-            OK
-          </span>
+          <span className="chip-emerald">OK</span>
         ) : (
-          <span className="chip bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
-            {items.length}
-          </span>
+          <span className="chip-rose">{items.length}</span>
         )}
       </summary>
       {items.length > 0 && (
@@ -151,7 +144,7 @@ export default function Dashboard() {
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {(activity.data ?? []).map((entry, i) => (
                     <li key={i} className="flex items-start gap-3 py-2">
-                      <span className={`chip mt-0.5 shrink-0 ${operationStyle(entry.operation)}`}>
+                      <span className={`mt-0.5 shrink-0 ${operationStyle(entry.operation)}`}>
                         {entry.operation}
                       </span>
                       <span className="min-w-0 flex-1 break-words text-sm text-slate-600 dark:text-slate-300">

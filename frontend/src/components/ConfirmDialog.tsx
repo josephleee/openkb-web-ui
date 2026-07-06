@@ -1,4 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -24,14 +27,52 @@ export default function ConfirmDialog({
   onClose,
   children,
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Move focus into the dialog while it is open; restore it on close.
+  useEffect(() => {
+    if (!open) return;
+    const previous =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => previous?.focus();
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // Match the overlay/Cancel behavior: no dismissal while the action runs.
+        if (!busy) onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // Minimal focus trap: keep Tab cycling inside the dialog.
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusables = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      if (focusables.length === 0) {
+        e.preventDefault();
+        root.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement) || !root.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && (active === first || active === root)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, busy, onClose]);
 
   if (!open) return null;
 
@@ -46,7 +87,7 @@ export default function ConfirmDialog({
         className="absolute inset-0 bg-slate-950/50"
         onClick={busy ? undefined : onClose}
       />
-      <div className="card relative w-full max-w-lg p-5">
+      <div ref={dialogRef} tabIndex={-1} className="card relative w-full max-w-lg p-5 outline-none">
         <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
           {title}
         </h2>

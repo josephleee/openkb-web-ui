@@ -6,16 +6,16 @@ import type { JobEvent, JobState } from "../api/types";
 const MAX_LINES = 500;
 
 const STATE_STYLES: Record<JobState, string> = {
-  queued: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-  running: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  succeeded: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  failed: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  skipped: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  queued: "chip-neutral",
+  running: "chip-sky",
+  succeeded: "chip-emerald",
+  failed: "chip-rose",
+  skipped: "chip-amber",
 };
 
 export function JobStateBadge({ state }: { state: JobState }) {
   return (
-    <span className={`chip ${STATE_STYLES[state]}`}>
+    <span className={STATE_STYLES[state]}>
       {state === "running" && (
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
       )}

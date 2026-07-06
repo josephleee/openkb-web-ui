@@ -66,17 +66,58 @@ export default function GraphPage() {
   }, []);
 
   // d3-force mutates node/link objects in place — always hand it copies.
+  // Built once per fetched graph (NOT per legend toggle): react-force-graph
+  // identifies nodes by object identity, so rebuilding the arrays would throw
+  // away every accumulated x/y position and re-run the whole simulation.
+  // Legend filtering happens via node/linkVisibility instead.
   const data = useMemo(() => {
     if (!graph) return { nodes: [] as FgNode[], links: [] as FgLink[] };
-    const nodes = graph.nodes
-      .filter((n) => !hiddenTypes.has(n.type))
-      .map((n) => ({ ...n }));
-    const visibleIds = new Set(nodes.map((n) => n.id));
+    const nodes = graph.nodes.map((n) => ({ ...n }));
+    const ids = new Set(nodes.map((n) => n.id));
     const links = graph.edges
-      .filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
+      .filter((e) => ids.has(e.source) && ids.has(e.target))
       .map((e) => ({ ...e }));
     return { nodes, links };
-  }, [graph, hiddenTypes]);
+  }, [graph]);
+
+  const typeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of graph?.nodes ?? []) map.set(node.id, node.type);
+    return map;
+  }, [graph]);
+
+  const isNodeVisible = useCallback(
+    (node: FgNode) => !hiddenTypes.has(node.type),
+    [hiddenTypes],
+  );
+
+  const isLinkVisible = useCallback(
+    (link: FgLink) => {
+      // After the simulation starts, link endpoints are node objects; before
+      // that they are still the raw string ids.
+      const typeOf = (end: FgLink["source"]): string | undefined =>
+        typeof end === "object" && end !== null
+          ? (end as FgNode).type
+          : typeById.get(String(end));
+      const source = typeOf(link.source);
+      const target = typeOf(link.target);
+      return (
+        source !== undefined &&
+        target !== undefined &&
+        !hiddenTypes.has(source) &&
+        !hiddenTypes.has(target)
+      );
+    },
+    [hiddenTypes, typeById],
+  );
+
+  const visibleCounts = useMemo(
+    () => ({
+      nodes: data.nodes.filter(isNodeVisible).length,
+      links: data.links.filter(isLinkVisible).length,
+    }),
+    [data, isNodeVisible, isLinkVisible],
+  );
 
   const colorFor = useCallback(
     (type: string) => {
@@ -100,11 +141,12 @@ export default function GraphPage() {
     return data.nodes
       .filter(
         (n) =>
-          n.label.toLowerCase().includes(query) ||
-          String(n.id).toLowerCase().includes(query),
+          isNodeVisible(n) &&
+          (n.label.toLowerCase().includes(query) ||
+            String(n.id).toLowerCase().includes(query)),
       )
       .slice(0, 8);
-  }, [search, data]);
+  }, [search, data, isNodeVisible]);
 
   const focusNode = useCallback((node: FgNode) => {
     setHighlightId(String(node.id));
@@ -197,6 +239,8 @@ export default function GraphPage() {
               width={size.width}
               height={size.height}
               graphData={data}
+              nodeVisibility={isNodeVisible}
+              linkVisibility={isLinkVisible}
               backgroundColor={dark ? "#020617" : "#f8fafc"}
               nodeLabel={(node) => `${node.label} · ${node.type}`}
               nodeCanvasObject={drawNode}
@@ -280,7 +324,7 @@ export default function GraphPage() {
           </div>
 
           <div className="absolute bottom-4 left-4 rounded-md bg-white/80 px-2 py-1 text-[11px] text-slate-500 backdrop-blur dark:bg-slate-900/80 dark:text-slate-400">
-            {data.nodes.length} nodes · {data.links.length} edges — click a node to open its page
+            {visibleCounts.nodes} nodes · {visibleCounts.links} edges — click a node to open its page
           </div>
         </>
       )}

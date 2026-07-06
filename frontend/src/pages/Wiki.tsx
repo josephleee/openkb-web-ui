@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getPage, getPages, wikiFileUrl } from "../api/client";
 import type { PageSummary } from "../api/types";
 import Markdown from "../components/Markdown";
-import { EmptyState, ErrorState, PageLoading } from "../components/States";
+import { EmptyState, ErrorState, PageLoading, Spinner } from "../components/States";
 import { formatRelativeFromEpoch } from "../lib/format";
 
 const KIND_ORDER = ["summaries", "concepts", "entities", "explorations"];
@@ -36,7 +36,19 @@ function SourceChip({ source }: { source: string }) {
   );
 }
 
-function Sidebar({ pages, activeTarget }: { pages: PageSummary[]; activeTarget: string }) {
+function Sidebar({
+  pages,
+  activeTarget,
+  loading,
+  error,
+  onRetry,
+}: {
+  pages: PageSummary[];
+  activeTarget: string;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+}) {
   const [filter, setFilter] = useState("");
 
   const groups = useMemo(() => {
@@ -108,7 +120,22 @@ function Sidebar({ pages, activeTarget }: { pages: PageSummary[]; activeTarget: 
             ))}
           </div>
         ))}
-        {groups.length === 0 && (
+        {loading && (
+          <div className="flex justify-center py-4">
+            <Spinner />
+          </div>
+        )}
+        {!loading && error && (
+          <div className="px-3 py-2">
+            <p className="text-xs text-rose-600 dark:text-rose-400">
+              Could not load pages.
+            </p>
+            <button className="btn btn-sm mt-1.5" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && groups.length === 0 && (
           <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
             {filter ? "No pages match the filter." : "No pages yet."}
           </p>
@@ -143,7 +170,13 @@ export default function WikiPage() {
 
   return (
     <div className="flex h-full">
-      <Sidebar pages={pagesQuery.data ?? []} activeTarget={target} />
+      <Sidebar
+        pages={pagesQuery.data ?? []}
+        activeTarget={target}
+        loading={pagesQuery.isLoading}
+        error={pagesQuery.isError}
+        onRetry={() => void pagesQuery.refetch()}
+      />
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl p-6">
           {pageQuery.isLoading ? (
@@ -179,16 +212,8 @@ export default function WikiPage() {
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {fmType && (
-                    <span className="chip bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-                      {fmType}
-                    </span>
-                  )}
-                  {fmDocType && (
-                    <span className="chip bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
-                      {fmDocType}
-                    </span>
-                  )}
+                  {fmType && <span className="chip-sky">{fmType}</span>}
+                  {fmDocType && <span className="chip-violet">{fmDocType}</span>}
                   {fmFullText && <SourceChip source={fmFullText} />}
                   {fmSources.map((source) => (
                     <SourceChip key={source} source={source} />

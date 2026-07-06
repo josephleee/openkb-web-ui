@@ -12,6 +12,9 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
+    # Also an openkb dependency; used directly for non-blocking shared-lock
+    # acquisition in kb.read_locked (openkb.locks only exposes blocking flock).
+    "portalocker",
 ]
 
 [project.scripts]

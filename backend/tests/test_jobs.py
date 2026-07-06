@@ -55,8 +55,21 @@ async def test_add_success_with_ok_marker(client, fake_openkb, kb_dir: Path):
     assert job["label"] == "Add notes.md"
     assert job["started_at"] is not None and job["finished_at"] is not None
 
-    # Upload staging dir is removed on success.
-    assert list(_uploads_root(kb_dir).iterdir()) == []
+    # Upload is staged at a stable path keyed by filename (not a per-upload
+    # dir) so a re-upload overwrites the same OpenKB document in place; it is
+    # kept rather than deleted on success.
+    assert (_uploads_root(kb_dir) / "notes.md").is_file()
+
+
+async def test_upload_staging_path_is_stable_per_filename(client, fake_openkb, kb_dir: Path):
+    """Re-uploading the same filename must reuse the same staged path so
+    OpenKB (which keys identity by source path) overwrites in place."""
+    await wait_for_job(client, await _upload(client, "paper.md", b"# v1\n"), "succeeded")
+    await wait_for_job(client, await _upload(client, "paper.md", b"# v2 edited\n"), "succeeded")
+
+    staged = [p for p in _uploads_root(kb_dir).iterdir() if not p.name.startswith(".")]
+    assert staged == [_uploads_root(kb_dir) / "paper.md"]
+    assert (_uploads_root(kb_dir) / "paper.md").read_text() == "# v2 edited\n"
 
 
 async def test_add_skip_marker(client, fake_openkb, kb_dir: Path):
@@ -65,8 +78,6 @@ async def test_add_skip_marker(client, fake_openkb, kb_dir: Path):
 
     assert events[-1]["state"] == "skipped"
     assert "[SKIP]" in events[-1]["detail"]
-    # Dedup skip is a non-error: staging dir removed too.
-    assert list(_uploads_root(kb_dir).iterdir()) == []
 
 
 async def test_add_error_marker_despite_exit_zero(client, fake_openkb, kb_dir: Path):
@@ -76,10 +87,8 @@ async def test_add_error_marker_despite_exit_zero(client, fake_openkb, kb_dir: P
     assert events[-1]["state"] == "failed"
     assert "[ERROR]" in events[-1]["detail"]
 
-    # Upload kept on failure for inspection/retry.
-    kept = list(_uploads_root(kb_dir).iterdir())
-    assert len(kept) == 1
-    assert (kept[0] / "failing.md").is_file()
+    # Upload kept on failure for inspection/retry, at its stable path.
+    assert (_uploads_root(kb_dir) / "failing.md").is_file()
 
 
 async def test_add_nonzero_exit_without_markers(client, fake_openkb):
@@ -111,6 +120,35 @@ async def test_recompile_done_line(client, fake_openkb):
     job = await wait_for_job(client, job_id, "succeeded")
     assert job["kind"] == "recompile"
     assert job["detail"] == "Done: recompiled 1, skipped 0."
+
+
+async def test_recompile_skip_not_reported_succeeded(client, fake_openkb):
+    """A recompile that skipped everything prints '[SKIP]' + 'Done: recompiled
+    0, skipped 1.' and exits 0 — the trailing Done: line must not mask it."""
+    resp = await client.post("/api/documents/legacy-doc/recompile")
+    job_id = resp.json()["job_id"]
+
+    job = await wait_for_job(client, job_id, "skipped")
+    assert "[SKIP]" in job["detail"]
+
+
+async def test_recompile_multiple_match_classified_failed(client, fake_openkb):
+    """recompile prints 'matches multiple documents' and exits 0 — classify failed."""
+    resp = await client.post("/api/documents/multi-doc/recompile")
+    job_id = resp.json()["job_id"]
+
+    job = await wait_for_job(client, job_id, "failed")
+    assert "matches multiple documents" in job["detail"]
+
+
+async def test_remove_multiple_match_classified_failed(client, fake_openkb):
+    """remove (non-dry) prints 'matches multiple documents' and exits 0 with no
+    [OK] marker — classify failed rather than silently succeeded."""
+    resp = await client.post("/api/documents/multi-doc/remove")
+    job_id = resp.json()["job_id"]
+
+    job = await wait_for_job(client, job_id, "failed")
+    assert "matches multiple documents" in job["detail"]
 
 
 async def test_remove_job_args_and_keep_raw(app, client, fake_openkb):

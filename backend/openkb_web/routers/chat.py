@@ -85,9 +85,11 @@ async def create_session(
     kb = request.app.state.kb
 
     def create() -> ChatSession:
+        # load_config merges OpenKB's DEFAULT_CONFIG, so model/language are
+        # always present — no need to re-hardcode the defaults here.
         config = kb.load_config()
-        model = (body.model if body else None) or config.get("model", "gpt-5.4")
-        language = (body.language if body else None) or config.get("language", "en")
+        model = (body.model if body else None) or config["model"]
+        language = (body.language if body else None) or config["language"]
         session = ChatSession.new(kb.kb_dir, model, language)
         session.save()
         return session
@@ -117,10 +119,15 @@ async def post_message(session_id: str, body: MessageIn, request: Request):
     if not message:
         raise HTTPException(status_code=400, detail="Message must not be empty")
 
-    session = await _load_session_or_404(request, session_id)
+    _check_session_id(session_id)
+    if not (chats_dir(kb.kb_dir) / f"{session_id}.json").is_file():
+        raise HTTPException(status_code=404, detail=f"Unknown session: {session_id}")
 
     # record_turn replaces the whole stored history; concurrent turns on one
     # session would clobber each other, so a session runs one turn at a time.
+    # The guard MUST be held before the history is loaded — otherwise a request
+    # could snapshot pre-turn history, pass the guard after the prior turn
+    # releases it, and persist a history missing that turn.
     inflight: set[str] = request.app.state.chat_inflight
     if session_id in inflight:
         raise HTTPException(
@@ -129,6 +136,7 @@ async def post_message(session_id: str, body: MessageIn, request: Request):
     inflight.add(session_id)
 
     try:
+        session = await _load_session_or_404(request, session_id)
         # Rebuild per turn with the session's stored model (CLI resume semantics).
         agent = await run_in_threadpool(
             build_chat_agent, kb.kb_dir, session.model, session.language
@@ -163,8 +171,8 @@ async def post_query(body: QueryIn, request: Request):
         config = kb.load_config()
         return build_query_agent(
             str(kb.wiki_dir),
-            config.get("model", "gpt-5.4"),
-            language=config.get("language", "en"),
+            config["model"],
+            language=config["language"],
         )
 
     agent = await run_in_threadpool(build)

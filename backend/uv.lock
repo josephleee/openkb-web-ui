@@ -1807,6 +1807,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "openkb" },
+    { name = "portalocker" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1822,6 +1823,7 @@ dev = [
 requires-dist = [
     { name = "fastapi" },
     { name = "openkb", specifier = "==0.4.3" },
+    { name = "portalocker" },
     { name = "python-multipart" },
     { name = "uvicorn", extras = ["standard"] },
 ]

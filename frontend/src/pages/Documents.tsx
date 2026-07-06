@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   addDocumentUrl,
@@ -11,7 +11,7 @@ import {
   uploadDocument,
 } from "../api/client";
 import { errorMessage } from "../api/http";
-import type { DocumentEntry, Job, RemovePlanAction } from "../api/types";
+import type { DocumentEntry, Job, JobState, RemovePlanAction } from "../api/types";
 import { SUPPORTED_EXTENSIONS, hasSupportedExtension } from "../api/types";
 import ConfirmDialog from "../components/ConfirmDialog";
 import JobProgress, { JobStateBadge } from "../components/JobProgress";
@@ -24,6 +24,12 @@ const PLAN_ACTION_STYLES: Record<RemovePlanAction, string> = {
   REGISTRY: "text-slate-500 dark:text-slate-400",
   PAGEINDEX: "text-violet-600 dark:text-violet-400",
 };
+
+const TERMINAL_JOB_STATES: ReadonlySet<JobState> = new Set([
+  "succeeded",
+  "failed",
+  "skipped",
+]);
 
 function UploadDropzone({
   onFiles,
@@ -55,7 +61,14 @@ function UploadDropzone({
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       onClick={() => !uploading && inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && !uploading) {
+          e.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
       role="button"
+      tabIndex={0}
       aria-label="Upload documents"
     >
       <input
@@ -171,6 +184,26 @@ export default function DocumentsPage() {
       void queryClient.invalidateQueries({ queryKey: [key] });
     }
   };
+
+  // Refresh KB-derived queries whenever a job reaches a terminal state, based
+  // on the polled jobs list. (JobProgress also reports completion over SSE,
+  // but it is only mounted for the single expanded log panel — completion
+  // must not depend on which log the user happens to have open.)
+  const seenJobStatesRef = useRef<Map<string, JobState> | null>(null);
+  useEffect(() => {
+    const list = jobs.data;
+    if (!list) return;
+    const prev = seenJobStatesRef.current;
+    seenJobStatesRef.current = new Map<string, JobState>(
+      list.map((job) => [job.id, job.state]),
+    );
+    if (!prev) return; // initial snapshot: nothing finished *while watching*
+    const justFinished = list.some(
+      (job) => TERMINAL_JOB_STATES.has(job.state) && prev.get(job.id) !== job.state,
+    );
+    if (justFinished) invalidateKbState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.data]);
 
   const trackJob = (jobId: string) => {
     setExpandedJobId(jobId);
@@ -338,11 +371,9 @@ export default function DocumentsPage() {
                       </td>
                       <td className="py-2.5 pr-4">
                         <span
-                          className={`chip ${
-                            doc.display_type === "pageindex"
-                              ? "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                          }`}
+                          className={
+                            doc.display_type === "pageindex" ? "chip-violet" : "chip-neutral"
+                          }
                         >
                           {doc.display_type}
                         </span>

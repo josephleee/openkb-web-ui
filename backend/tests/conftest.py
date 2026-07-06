@@ -78,6 +78,18 @@ case "$cmd" in
         echo "Use a more specific name or the exact doc_name slug."
         exit 0
         ;;
+    esac
+    if [ "$dry" = "0" ]; then
+      case "$ident" in
+      *multi*)
+        # remove (non-dry) prints the ambiguity notice and exits 0, no marker.
+        echo "'$ident' matches multiple documents:"
+        echo "Use a more specific name or the exact doc_name slug."
+        exit 0
+        ;;
+      esac
+    fi
+    case "$ident" in
       *slowplan*)
         sleep "${FAKE_OPENKB_SLEEP:-0.5}"
         ;;
@@ -97,9 +109,24 @@ case "$cmd" in
     ;;
   recompile)
     name="$1"
-    echo "[1/1] Recompiling $name"
-    echo "  [OK] $name (12.3s)"
-    echo "Done: recompiled 1, skipped 0."
+    case "$name" in
+      *legacy*)
+        # Legacy long doc without doc_id: recompile skips it, exit 0.
+        echo "[1/1] Recompiling $name"
+        echo "  [SKIP] $name (missing doc_id; re-add to recompile)"
+        echo "Done: recompiled 0, skipped 1."
+        ;;
+      *multi*)
+        echo "'$name' matches multiple documents:"
+        echo "Use a more specific name or the exact doc_name slug."
+        exit 0
+        ;;
+      *)
+        echo "[1/1] Recompiling $name"
+        echo "  [OK] $name (12.3s)"
+        echo "Done: recompiled 1, skipped 0."
+        ;;
+    esac
     ;;
   *)
     echo "fake openkb: unknown command '$cmd'" >&2

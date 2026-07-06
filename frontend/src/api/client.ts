@@ -77,7 +77,7 @@ export const getJobs = () => request<Job[]>("/api/jobs");
 export const jobEventsUrl = (jobId: string) =>
   `/api/jobs/${encodeURIComponent(jobId)}/events`;
 
-// --- Chat & query ---
+// --- Chat ---
 
 export const getChatSessions = () => request<ChatSessionSummary[]>("/api/chat/sessions");
 
@@ -104,12 +104,6 @@ export const sendChatMessage = (
     onEvent,
     signal,
   );
-
-export const runQuery = (
-  question: string,
-  onEvent: (event: ChatStreamEvent) => void,
-  signal?: AbortSignal,
-) => postSse<ChatStreamEvent>("/api/query", { question }, onEvent, signal);
 
 // --- Graph ---
 

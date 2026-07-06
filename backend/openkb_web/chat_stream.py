@@ -50,6 +50,7 @@ async def stream_agent_events(
     chat uses it to persist the turn via ``session.record_turn``.
     """
     collected: list[str] = []
+    result = None
     try:
         result = Runner.run_streamed(agent, input_items, max_turns=MAX_TURNS)
         async for event in result.stream_events():
@@ -72,6 +73,16 @@ async def stream_agent_events(
     except Exception as exc:  # incl. MaxTurnsExceeded
         yield sse_event({"type": "error", "message": str(exc) or type(exc).__name__})
         return
+    finally:
+        # If the client disconnects, this generator is closed at a yield and
+        # the run would otherwise keep executing to completion (extra LLM turns
+        # + tool writes) with no consumer. Tear it down on any abnormal exit;
+        # a normal completion leaves is_complete True so this is a no-op.
+        if result is not None and not getattr(result, "is_complete", True):
+            try:
+                result.cancel()
+            except Exception:
+                pass
 
     yield sse_event({"type": "done", "answer": answer})
 

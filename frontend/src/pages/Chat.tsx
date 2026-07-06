@@ -103,12 +103,18 @@ function SessionSidebar({
   onNew,
   creating,
   onDelete,
+  loading,
+  error,
+  onRetry,
 }: {
   sessions: ChatSessionSummary[];
   currentId: string | undefined;
   onNew: () => void;
   creating: boolean;
   onDelete: (session: ChatSessionSummary) => void;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
 }) {
   const sorted = sessions
     .slice()
@@ -121,7 +127,22 @@ function SessionSidebar({
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
-        {sorted.length === 0 && (
+        {loading && (
+          <div className="flex justify-center py-4">
+            <Spinner />
+          </div>
+        )}
+        {!loading && error && (
+          <div className="px-3 py-2">
+            <p className="text-xs text-rose-600 dark:text-rose-400">
+              Could not load sessions.
+            </p>
+            <button className="btn btn-sm mt-1.5" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && sorted.length === 0 && (
           <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
             No sessions yet.
           </p>
@@ -155,7 +176,8 @@ function SessionSidebar({
               </div>
             </Link>
             <button
-              className="mr-1 hidden shrink-0 rounded p-1 text-slate-400 hover:bg-rose-100 hover:text-rose-600 group-hover:block dark:hover:bg-rose-500/15 dark:hover:text-rose-400"
+              type="button"
+              className="mr-1 shrink-0 rounded p-1 text-slate-400 opacity-0 hover:bg-rose-100 hover:text-rose-600 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-rose-500/15 dark:hover:text-rose-400"
               onClick={() => onDelete(session)}
               title="Delete session"
               aria-label={`Delete session ${session.title || session.id}`}
@@ -194,12 +216,19 @@ export default function ChatPage() {
   const [deleteTarget, setDeleteTarget] = useState<ChatSessionSummary | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const askSentRef = useRef(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setPending(null);
     setToolTrails({});
     setDraft("");
     askSentRef.current = false;
+    return () => {
+      // Kill any in-flight stream when leaving the session (or unmounting) so
+      // its late events can never write into another session's view.
+      streamAbortRef.current?.abort();
+      streamAbortRef.current = null;
+    };
   }, [sessionId]);
 
   const turns: ChatTurn[] = sessionQuery.data?.turns ?? [];
@@ -207,7 +236,12 @@ export default function ChatPage() {
 
   const send = async (raw: string) => {
     const message = raw.trim();
-    if (!message || !sessionId || pending) return;
+    // A pending turn that already errored (streaming: false) may be replaced
+    // by a new send; only an actively streaming turn blocks the composer.
+    if (!message || !sessionId || (pending && pending.streaming)) return;
+    streamAbortRef.current?.abort();
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
     const baseIndex =
       queryClient.getQueryData<ChatSessionDetail>(["chat-session", sessionId])?.turns
         .length ?? 0;
@@ -220,6 +254,7 @@ export default function ChatPage() {
 
     try {
       await sendChatMessage(sessionId, message, (event) => {
+        if (controller.signal.aborted) return;
         if (event.type === "text_delta") {
           text += event.delta;
           setPending((p) => (p ? { ...p, text } : p));
@@ -273,13 +308,15 @@ export default function ChatPage() {
             setPending((p) => (p ? { ...p, error: event.message, streaming: false } : p));
           }
         }
-      });
+      }, controller.signal);
+      if (controller.signal.aborted) return;
       if (!finished) {
         setPending((p) =>
           p ? { ...p, error: "The stream ended unexpectedly.", streaming: false } : p,
         );
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       setPending((p) => (p ? { ...p, error: errorMessage(err), streaming: false } : p));
     }
   };
@@ -323,22 +360,25 @@ export default function ChatPage() {
     },
   });
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const submitDraft = () => {
     if (!draft.trim() || isStreaming) return;
     const message = draft;
     setDraft("");
     void send(message);
   };
 
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submitDraft();
+  };
+
   const onComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // During IME composition (CJK input) Enter commits the composition, not
+    // the message. Safari reports it only via the legacy keyCode 229.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (draft.trim() && !isStreaming) {
-        const message = draft;
-        setDraft("");
-        void send(message);
-      }
+      submitDraft();
     }
   };
 
@@ -350,6 +390,9 @@ export default function ChatPage() {
         onNew={() => createMutation.mutate()}
         creating={createMutation.isPending}
         onDelete={setDeleteTarget}
+        loading={sessionsQuery.isLoading}
+        error={sessionsQuery.isError}
+        onRetry={() => void sessionsQuery.refetch()}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

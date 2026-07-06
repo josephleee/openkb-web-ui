@@ -23,7 +23,7 @@ router = APIRouter()
 # log.md heading format: "## [YYYY-MM-DD HH:MM:SS] operation | description"
 _LOG_RE = re.compile(r"^## \[(.+?)\] (\w+) \| (.*)$")
 
-_COUNT_DIRS = ("summaries", "concepts", "entities", "explorations", "reports")
+_COUNT_DIRS = tuple(PAGE_CONTENT_DIRS) + ("explorations", "reports")
 
 
 def _iso_from_mtime(mtime: float) -> str:

@@ -33,6 +33,13 @@ TERMINAL_STATES = ("succeeded", "failed", "skipped")
 # completed step line arrives as "    Compiling short doc....... 45.2s (...)".
 _DOT_RUN_RE = re.compile(r"\.{4,}")
 
+# remove/recompile exit 0 and print no [ERROR] marker on these no-op paths.
+_NOOP_SENTINELS = ("No document matching", "matches multiple documents")
+
+# recompile prints "Done: recompiled N, skipped M" — a run that recompiled
+# nothing (N == 0) is not a success even though it emits a Done: summary.
+_DONE_RECOMPILED_RE = re.compile(r"Done: recompiled (\d+)")
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -45,6 +52,14 @@ def _openkb_argv() -> list[str]:
     if exe:
         return [exe]
     return [sys.executable, "-m", "openkb"]
+
+
+def openkb_env(kb_dir: Path) -> dict[str, str]:
+    """Environment for an openkb subprocess: KB override + unbuffered stdout."""
+    env = dict(os.environ)
+    env["OPENKB_DIR"] = str(kb_dir)
+    env["PYTHONUNBUFFERED"] = "1"
+    return env
 
 
 @dataclass
@@ -176,10 +191,7 @@ class JobQueue:
         job.started_at = _utcnow_iso()
         self._publish(job, {"type": "state", "state": "running"})
 
-        env = dict(os.environ)
-        env["OPENKB_DIR"] = str(self.kb_dir)
-        env["PYTHONUNBUFFERED"] = "1"
-
+        env = openkb_env(self.kb_dir)
         argv = _openkb_argv() + job.args
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -205,15 +217,18 @@ class JobQueue:
             if not line.strip():
                 return
             stripped = line.strip()
-            if "[ERROR]" in stripped and not first_error:
-                first_error = stripped
-            elif "No document matching" in stripped and not first_error:
-                # remove/recompile exit 0 and print no [ERROR] marker here.
+            if not first_error and (
+                "[ERROR]" in stripped or any(s in stripped for s in _NOOP_SENTINELS)
+            ):
                 first_error = stripped
             if "[SKIP]" in stripped and not first_skip:
                 first_skip = stripped
-            if "[OK]" in stripped or stripped.startswith("Done:"):
+            if "[OK]" in stripped:
                 last_ok = stripped
+            elif stripped.startswith("Done:"):
+                m = _DONE_RECOMPILED_RE.search(stripped)
+                if m is None or int(m.group(1)) > 0:
+                    last_ok = stripped
             last_line = stripped
             self._publish(job, {"type": "line", "line": line})
 

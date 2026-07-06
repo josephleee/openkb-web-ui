@@ -11,11 +11,13 @@ import argparse
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import Headers
 
 from openkb_web.jobqueue import JobQueue
 from openkb_web.kb import KBContext
@@ -43,7 +45,11 @@ def resolve_kb_dir(explicit: str | os.PathLike | None = None) -> Path:
 
 
 def create_app(kb_dir: str | Path | None = None) -> FastAPI:
-    kb = KBContext(resolve_kb_dir(kb_dir))
+    kb_path = resolve_kb_dir(kb_dir)
+    jobqueue = JobQueue(kb_path)
+    # busy_probe lets read endpoints skip even the non-blocking lock attempt
+    # while our own mutation holds OpenKB's exclusive ingest lock.
+    kb = KBContext(kb_path, busy_probe=lambda: jobqueue.busy)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -58,7 +64,7 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
 
     app = FastAPI(title="OpenKB Web", lifespan=lifespan)
     app.state.kb = kb
-    app.state.jobqueue = JobQueue(kb.kb_dir)
+    app.state.jobqueue = jobqueue
     app.state.chat_inflight = set()
     app.state.graph_cache = None
 
@@ -67,6 +73,7 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
         for o in os.environ.get(CORS_ENV, _DEFAULT_CORS).split(",")
         if o.strip()
     ]
+    app.state.allowed_origins = set(origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -74,11 +81,34 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    # CSRF guard: the server is unauthenticated by design (local trusted tool),
+    # so a malicious page in the user's browser could otherwise fire state-
+    # changing POSTs cross-origin (CORS blocks reading the reply, not the side
+    # effect). Reject any browser-originated mutation whose Origin is neither
+    # same-origin nor in the allowlist. Non-browser clients send no Origin and
+    # pass through unchanged.
+    @app.middleware("http")
+    async def csrf_guard(request, call_next):
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if origin is not None and not _origin_trusted(request, origin):
+                return JSONResponse(
+                    status_code=403, content={"detail": "Cross-origin request rejected"}
+                )
+        return await call_next(request)
+
     for module in (status, pages, documents, jobs, chat, graph):
         app.include_router(module.router, prefix="/api")
 
     _mount_frontend(app)
     return app
+
+
+def _origin_trusted(request, origin: str) -> bool:
+    if origin in request.app.state.allowed_origins:
+        return True
+    host = request.headers.get("host")
+    return bool(host) and urlparse(origin).netloc == host
 
 
 def _mount_frontend(app: FastAPI) -> None:

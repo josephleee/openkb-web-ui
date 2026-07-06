@@ -17,9 +17,10 @@ The server wraps exactly one OpenKB knowledge base:
   events. Outcomes are classified by `[OK]`/`[ERROR]`/`[SKIP]` output markers
   because exit codes are unreliable.
 
-Uploads are staged under `<kb>/.openkb-web-uploads/<uuid>/<original-name>`
-(outside `wiki/`, preserving the filename because it is the document's
-identity in OpenKB) and cleaned up when the add job succeeds.
+Uploads are staged at `<kb>/.openkb-web-uploads/<original-name>` (outside
+`wiki/`). The path is kept stable per filename on purpose: OpenKB identifies a
+document by its source path, so re-uploading the same filename overwrites the
+document in place instead of forking a `<stem>-<hash>` duplicate.
 
 A production build of `../frontend/dist` is served automatically with an SPA
 fallback when present; otherwise run the Vite dev server against

@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+  }
+  .chip-neutral {
+    @apply chip bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300;
+  }
+  .input {
+    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:placeholder:text-slate-500;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+  }
+  .btn-primary {
+    @apply border-transparent bg-indigo-600 text-white hover:bg-indigo-500 dark:border-transparent dark:bg-indigo-600 dark:text-white dark:hover:bg-indigo-500;
+  }
+  .btn-danger {
+    @apply border-transparent bg-rose-600 text-white hover:bg-rose-500 dark:border-transparent dark:bg-rose-600 dark:text-white dark:hover:bg-rose-500;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .wikilink {
+    @apply border-b border-dotted border-sky-500/60 text-sky-600 no-underline hover:border-solid dark:text-sky-400;
+  }
+  .wikilink-unresolved {
+    @apply cursor-help border-b border-dotted border-slate-400/50 text-slate-400 dark:text-slate-500;
+  }
+}
+
+/* Rendered markdown content */
+.markdown-body {
+  @apply text-sm leading-7 text-slate-700 dark:text-slate-300;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body h1 {
+  @apply mb-4 mt-8 border-b border-slate-200 pb-2 text-2xl font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100;
+}
+.markdown-body h2 {
+  @apply mb-3 mt-7 text-xl font-semibold text-slate-900 dark:text-slate-100;
+}
+.markdown-body h3 {
+  @apply mb-2 mt-5 text-base font-semibold text-slate-900 dark:text-slate-100;
+}
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  @apply mb-2 mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100;
+}
+.markdown-body p {
+  @apply my-3;
+}
+.markdown-body ul {
+  @apply my-3 list-disc pl-6;
+}
+.markdown-body ol {
+  @apply my-3 list-decimal pl-6;
+}
+.markdown-body li {
+  @apply my-1;
+}
+.markdown-body a:not(.wikilink):not(.wikilink-unresolved) {
+  @apply text-sky-600 underline decoration-sky-500/40 underline-offset-2 hover:decoration-sky-500 dark:text-sky-400;
+}
+.markdown-body blockquote {
+  @apply my-3 border-l-4 border-slate-300 pl-4 text-slate-500 dark:border-slate-700 dark:text-slate-400;
+}
+.markdown-body code {
+  @apply rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[0.85em] dark:bg-slate-800;
+}
+.markdown-body pre {
+  @apply my-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-slate-100 dark:bg-black/60;
+}
+.markdown-body pre code {
+  @apply bg-transparent p-0 text-xs dark:bg-transparent;
+}
+.markdown-body table {
+  @apply my-4 block max-w-full overflow-x-auto border-collapse text-xs;
+}
+.markdown-body th {
+  @apply border border-slate-300 bg-slate-100 px-3 py-1.5 text-left font-semibold dark:border-slate-700 dark:bg-slate-800;
+}
+.markdown-body td {
+  @apply border border-slate-300 px-3 py-1.5 align-top dark:border-slate-700;
+}
+.markdown-body img {
+  @apply my-4 max-w-full rounded-lg border border-slate-200 dark:border-slate-800;
+}
+.markdown-body hr {
+  @apply my-6 border-slate-200 dark:border-slate-800;
+}

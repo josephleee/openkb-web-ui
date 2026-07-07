@@ -49,7 +49,7 @@ function UploadDropzone({
 
   return (
     <div
-      className={`flex h-full min-h-[8.5rem] cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-6 text-center transition-colors ${
+      className={`flex min-h-[8.5rem] flex-1 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-6 text-center transition-colors ${
         dragging
           ? "border-accent bg-accent-soft"
           : "border-line-strong hover:border-accent-line"
@@ -299,7 +299,7 @@ export default function DocumentsPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="card p-4">
+          <div className="card flex flex-col p-4">
             <h2 className="mb-3 text-sm font-semibold text-ink">
               Upload files
             </h2>

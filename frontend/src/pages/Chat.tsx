@@ -39,18 +39,40 @@ function prettyArguments(args: string): string {
 function ToolTrail({ tools }: { tools: ToolCall[] }) {
   if (tools.length === 0) return null;
   return (
-    <details className="mb-3 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-      <summary className="cursor-pointer select-none bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+    <details className="group mb-3 overflow-hidden rounded-lg border border-line bg-panel">
+      <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-1.5 font-mono text-xs font-medium text-ink-2">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          className="h-3.5 w-3.5 shrink-0 text-ink-3 transition-transform group-open:rotate-90"
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          className="h-3.5 w-3.5 shrink-0 text-ink-3"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
+          />
+        </svg>
         {tools.length} tool call{tools.length > 1 ? "s" : ""}
       </summary>
-      <ol className="divide-y divide-slate-100 dark:divide-slate-800">
+      <ol className="divide-y divide-line border-t border-line">
         {tools.map((tool, i) => (
           <li key={i} className="px-3 py-2">
-            <div className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {tool.name}
-            </div>
+            <span className="chip chip-violet">{tool.name}</span>
             {tool.arguments && (
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+              <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-ink-3">
                 {prettyArguments(tool.arguments)}
               </pre>
             )}
@@ -64,7 +86,7 @@ function ToolTrail({ tools }: { tools: ToolCall[] }) {
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[75%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-2 text-sm text-white">
+      <div className="max-w-[75%] whitespace-pre-wrap break-words rounded-tl-[14px] rounded-tr-[14px] rounded-br-[4px] rounded-bl-[14px] bg-accent px-4 py-2 text-sm text-accent-fg">
         {text}
       </div>
     </div>
@@ -81,17 +103,20 @@ function AssistantBubble({
   streaming?: boolean;
 }) {
   return (
-    <div className="card px-4 py-3">
+    <div className="card rounded-tl-[4px] rounded-tr-[14px] rounded-br-[14px] rounded-bl-[14px] px-4 py-3">
       <ToolTrail tools={tools} />
       {text ? (
         <Markdown assumeResolvedWikilinks>{text}</Markdown>
       ) : streaming ? (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-ink-3">
           <Spinner /> Thinking…
         </div>
       ) : null}
       {streaming && text && (
-        <span className="mt-1 inline-block h-3.5 w-1.5 animate-pulse bg-slate-400" aria-hidden="true" />
+        <span
+          className="ml-0.5 inline-block h-3.5 w-[2px] animate-blink bg-ink-3 align-middle"
+          aria-hidden="true"
+        />
       )}
     </div>
   );
@@ -120,10 +145,30 @@ function SessionSidebar({
     .slice()
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 p-3 dark:border-slate-800">
-        <button className="btn btn-primary w-full" onClick={onNew} disabled={creating}>
-          {creating ? "Creating…" : "New chat"}
+    <aside className="flex w-[260px] shrink-0 flex-col border-r border-line bg-panel">
+      <div className="border-b border-line p-3">
+        <button
+          className="btn btn-primary flex w-full items-center justify-center gap-1.5"
+          onClick={onNew}
+          disabled={creating}
+        >
+          {creating ? (
+            "Creating…"
+          ) : (
+            <>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              New chat
+            </>
+          )}
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
@@ -134,26 +179,22 @@ function SessionSidebar({
         )}
         {!loading && error && (
           <div className="px-3 py-2">
-            <p className="text-xs text-rose-600 dark:text-rose-400">
-              Could not load sessions.
-            </p>
+            <p className="text-xs text-rose-fg">Could not load sessions.</p>
             <button className="btn btn-sm mt-1.5" onClick={onRetry}>
               Retry
             </button>
           </div>
         )}
         {!loading && !error && sorted.length === 0 && (
-          <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
-            No sessions yet.
-          </p>
+          <p className="px-3 py-2 text-xs text-ink-3">No sessions yet.</p>
         )}
         {sorted.map((session) => (
           <div
             key={session.id}
-            className={`group flex items-center gap-1 rounded-md ${
+            className={`group flex items-center gap-1 rounded-md border ${
               session.id === currentId
-                ? "bg-indigo-50 dark:bg-indigo-500/10"
-                : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                ? "border-line bg-surface-2"
+                : "border-transparent hover:bg-surface-2"
             }`}
           >
             <Link
@@ -163,21 +204,19 @@ function SessionSidebar({
             >
               <div
                 className={`truncate text-sm ${
-                  session.id === currentId
-                    ? "font-medium text-indigo-700 dark:text-indigo-300"
-                    : "text-slate-600 dark:text-slate-300"
+                  session.id === currentId ? "font-medium text-accent" : "text-ink-2"
                 }`}
               >
                 {session.title || "New session"}
               </div>
-              <div className="text-[11px] text-slate-400 dark:text-slate-500">
+              <div className="text-[11px] text-ink-3">
                 {session.turn_count} turn{session.turn_count === 1 ? "" : "s"} ·{" "}
                 {formatRelative(session.updated_at)}
               </div>
             </Link>
             <button
               type="button"
-              className="mr-1 shrink-0 rounded p-1 text-slate-400 opacity-0 hover:bg-rose-100 hover:text-rose-600 focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-rose-500/15 dark:hover:text-rose-400"
+              className="mr-1 shrink-0 rounded p-1 text-ink-3 opacity-0 hover:text-rose-fg focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
               onClick={() => onDelete(session)}
               title="Delete session"
               aria-label={`Delete session ${session.title || session.id}`}
@@ -420,7 +459,7 @@ export default function ChatPage() {
         ) : (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-3xl space-y-4 p-6">
+              <div className="mx-auto max-w-[720px] space-y-4 p-6">
                 {turns.length === 0 && !pending && (
                   <EmptyState
                     title="No messages yet"
@@ -442,10 +481,8 @@ export default function ChatPage() {
                       streaming={pending.streaming}
                     />
                     {pending.error && (
-                      <div className="card flex items-start justify-between gap-3 border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-900/60 dark:bg-rose-950/40">
-                        <div className="text-sm text-rose-700 dark:text-rose-300">
-                          {pending.error}
-                        </div>
+                      <div className="card flex items-start justify-between gap-3 border-rose-fg bg-rose-bg px-4 py-3">
+                        <div className="text-sm text-rose-fg">{pending.error}</div>
                         <button className="btn btn-sm shrink-0" onClick={() => setPending(null)}>
                           Dismiss
                         </button>
@@ -457,24 +494,28 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <form
-              onSubmit={onSubmit}
-              className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <div className="mx-auto flex max-w-3xl items-end gap-2">
-                <textarea
-                  className="input resize-none"
-                  rows={2}
-                  placeholder={isStreaming ? "Waiting for the answer…" : "Ask a question… (Enter to send)"}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={onComposerKeyDown}
-                  disabled={isStreaming}
-                  aria-label="Chat message"
-                />
-                <button className="btn btn-primary shrink-0" disabled={isStreaming || !draft.trim()}>
-                  {isStreaming ? <Spinner className="h-4 w-4 text-white" /> : "Send"}
-                </button>
+            <form onSubmit={onSubmit} className="border-t border-line bg-panel p-4">
+              <div className="mx-auto max-w-[720px]">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    className="input resize-none"
+                    rows={2}
+                    placeholder={
+                      isStreaming ? "Waiting for the answer…" : "Ask a question about your knowledge base…"
+                    }
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={onComposerKeyDown}
+                    disabled={isStreaming}
+                    aria-label="Chat message"
+                  />
+                  <button className="btn btn-primary shrink-0" disabled={isStreaming || !draft.trim()}>
+                    {isStreaming ? <Spinner className="h-4 w-4 text-accent-fg" /> : "Send"}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-ink-3">
+                  Enter to send · Shift+Enter for a new line
+                </p>
               </div>
             </form>
           </>
@@ -490,14 +531,12 @@ export default function ChatPage() {
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       >
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-ink-2">
           “{deleteTarget?.title || deleteTarget?.id}” and its history will be permanently
           deleted.
         </p>
         {deleteMutation.isError && (
-          <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
-            {errorMessage(deleteMutation.error)}
-          </p>
+          <p className="mt-2 text-xs text-rose-fg">{errorMessage(deleteMutation.error)}</p>
         )}
       </ConfirmDialog>
     </div>

@@ -15,8 +15,33 @@ const KIND_LABELS: Record<string, string> = {
   explorations: "Explorations",
 };
 
+// Type-colored dot per page kind (mapping: Summary=sky, Concept=violet,
+// Entity=emerald, Organization/exploration=amber; unknown → neutral).
+const KIND_DOT: Record<string, string> = {
+  summaries: "bg-sky-fg",
+  concepts: "bg-violet-fg",
+  entities: "bg-em-fg",
+  explorations: "bg-amber-fg",
+};
+
 function kindLabel(kind: string): string {
   return KIND_LABELS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+// Page-type frontmatter chip color, following the status → color mapping.
+function typeChipClass(type: string): string {
+  switch (type) {
+    case "Summary":
+      return "chip-sky";
+    case "Concept":
+      return "chip-violet";
+    case "Entity":
+      return "chip-emerald";
+    case "Organization":
+      return "chip-amber";
+    default:
+      return "chip-neutral";
+  }
 }
 
 function SourceChip({ source }: { source: string }) {
@@ -77,8 +102,8 @@ function Sidebar({
   }, [pages, filter]);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 p-3 dark:border-slate-800">
+    <aside className="flex w-[250px] shrink-0 flex-col border-r border-line bg-panel">
+      <div className="border-b border-line p-3">
         <input
           className="input"
           placeholder="Filter pages…"
@@ -90,32 +115,35 @@ function Sidebar({
       <nav className="flex-1 overflow-y-auto p-2">
         <Link
           to="/wiki"
-          className={`block rounded-md px-3 py-1.5 text-sm font-medium ${
+          className={`flex items-center rounded-md border px-2.5 py-1.5 font-mono text-[13px] ${
             activeTarget === "index"
-              ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              ? "border-accent-line bg-accent-soft text-accent"
+              : "border-transparent text-ink-2 hover:bg-surface-2 hover:text-ink"
           }`}
         >
           Index
         </Link>
         {groups.map((group) => (
           <div key={group.kind} className="mt-3">
-            <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              {kindLabel(group.kind)}
-              <span className="ml-1 font-normal">({group.pages.length})</span>
+            <div className="px-2.5 pb-1 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-ink-3">
+              {kindLabel(group.kind)} ({group.pages.length})
             </div>
             {group.pages.map((page) => (
               <Link
                 key={page.target}
                 to={`/wiki/${page.target}`}
                 title={page.description ?? page.target}
-                className={`block truncate rounded-md px-3 py-1.5 text-sm ${
+                className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[13px] ${
                   activeTarget === page.target
-                    ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    ? "border-accent-line bg-accent-soft text-accent"
+                    : "border-transparent text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
-                {page.title}
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${KIND_DOT[group.kind] ?? "bg-neutral-fg"}`}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{page.slug}</span>
               </Link>
             ))}
           </div>
@@ -126,18 +154,16 @@ function Sidebar({
           </div>
         )}
         {!loading && error && (
-          <div className="px-3 py-2">
-            <p className="text-xs text-rose-600 dark:text-rose-400">
-              Could not load pages.
-            </p>
+          <div className="px-2.5 py-2">
+            <p className="text-xs text-rose-fg">Could not load pages.</p>
             <button className="btn btn-sm mt-1.5" onClick={onRetry}>
               Retry
             </button>
           </div>
         )}
         {!loading && !error && groups.length === 0 && (
-          <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
-            {filter ? "No pages match the filter." : "No pages yet."}
+          <p className="px-2.5 py-2 text-xs text-ink-3">
+            {filter ? `No pages match “${filter}”.` : "No pages yet."}
           </p>
         )}
       </nav>
@@ -185,16 +211,16 @@ export default function WikiPage() {
             <ErrorState error={pageQuery.error} onRetry={() => void pageQuery.refetch()} />
           ) : page ? (
             <article>
-              <nav className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-                <Link to="/wiki" className="hover:text-slate-600 dark:hover:text-slate-300">
+              <nav className="flex items-center gap-1.5 font-mono text-xs text-ink-3">
+                <Link to="/wiki" className="hover:text-ink">
                   wiki
                 </Link>
                 {page.target !== "index" &&
                   page.target.split("/").map((part, i, parts) => (
                     <span key={i} className="flex items-center gap-1.5">
-                      <span>/</span>
+                      <span className="text-ink-3">/</span>
                       {i === parts.length - 1 ? (
-                        <span className="text-slate-500 dark:text-slate-400">{part}</span>
+                        <span className="text-ink-2">{part}</span>
                       ) : (
                         <span>{part}</span>
                       )}
@@ -202,23 +228,25 @@ export default function WikiPage() {
                   ))}
               </nav>
 
-              <header className="mt-2 border-b border-slate-200 pb-4 dark:border-slate-800">
-                <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              <header className="mt-2 border-b border-line pb-4">
+                <h1 className="font-display text-[29px] font-semibold leading-tight tracking-tight text-ink">
                   {typeof frontmatter.title === "string" ? frontmatter.title : page.slug}
                 </h1>
                 {fmDescription && (
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    {fmDescription}
-                  </p>
+                  <p className="mt-1 text-sm text-ink-2">{fmDescription}</p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {fmType && <span className="chip-sky">{fmType}</span>}
-                  {fmDocType && <span className="chip-violet">{fmDocType}</span>}
+                  {fmType && <span className={typeChipClass(fmType)}>{fmType}</span>}
+                  {fmDocType && (
+                    <span className={fmDocType === "pageindex" ? "chip-violet" : "chip-neutral"}>
+                      {fmDocType}
+                    </span>
+                  )}
                   {fmFullText && <SourceChip source={fmFullText} />}
                   {fmSources.map((source) => (
                     <SourceChip key={source} source={source} />
                   ))}
-                  <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500">
+                  <span className="ml-auto font-mono text-[11px] text-ink-3">
                     Updated {formatRelativeFromEpoch(page.mtime)}
                   </span>
                 </div>

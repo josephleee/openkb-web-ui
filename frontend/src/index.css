@@ -2,6 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Design tokens — "Editorial Paper"
+   Light = warm cream/rust; Dark = warm espresso.
+   Driven by data-theme on <html> (see index.html init script).
+   ============================================================ */
+:root,
+[data-theme="light"] {
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Consolas",
+    "Liberation Mono", monospace;
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype",
+    "Times New Roman", serif;
+
+  --bg: #f2eee2;
+  --panel: #efe9db;
+  --surface: #fbf8f1;
+  --surface-2: #efe8d9;
+  --inset: #f2ecdf;
+  --border: #e3dac6;
+  --border-2: #d8ceb6;
+  --border-strong: #c8bda2;
+  --fg: #221d15;
+  --fg-2: #5b5344;
+  --fg-3: #948a75;
+  --accent: #b4531f;
+  --accent-2: #933f14;
+  --accent-fg: #fdf9f0;
+  --accent-soft: rgba(180, 83, 31, 0.1);
+  --accent-line: rgba(180, 83, 31, 0.3);
+  --shadow: 0 1px 2px rgba(60, 45, 25, 0.05), 0 1px 3px rgba(60, 45, 25, 0.06);
+  --shadow-lg: 0 16px 48px rgba(60, 45, 25, 0.16), 0 4px 12px rgba(60, 45, 25, 0.09);
+
+  --em-fg: #4a7a3f;
+  --em-bg: rgba(74, 122, 63, 0.14);
+  --rose-fg: #b23b2e;
+  --rose-bg: rgba(178, 59, 46, 0.11);
+  --sky-fg: #3a6a8a;
+  --sky-bg: rgba(58, 106, 138, 0.13);
+  --amber-fg: #a9761b;
+  --amber-bg: rgba(169, 118, 27, 0.15);
+  --violet-fg: #7a53a0;
+  --violet-bg: rgba(122, 83, 160, 0.13);
+  --neutral-fg: #5b5344;
+  --neutral-bg: rgba(60, 45, 25, 0.07);
+
+  --backdrop: rgba(8, 9, 13, 0.5);
+}
+
+[data-theme="dark"] {
+  --bg: #191410;
+  --panel: #1e1811;
+  --surface: #241d15;
+  --surface-2: #2b2318;
+  --inset: #1c1610;
+  --border: rgba(240, 225, 200, 0.09);
+  --border-2: rgba(240, 225, 200, 0.13);
+  --border-strong: rgba(240, 225, 200, 0.18);
+  --fg: #f0e7d5;
+  --fg-2: #c2b49a;
+  --fg-3: #8d7e68;
+  --accent: #dd7d3f;
+  --accent-2: #c4632a;
+  --accent-fg: #1c1206;
+  --accent-soft: rgba(221, 125, 63, 0.16);
+  --accent-line: rgba(221, 125, 63, 0.4);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.5);
+
+  --em-fg: #8bc47a;
+  --em-bg: rgba(139, 196, 122, 0.15);
+  --rose-fg: #e88a78;
+  --rose-bg: rgba(224, 120, 90, 0.16);
+  --sky-fg: #8bb6d4;
+  --sky-bg: rgba(120, 168, 205, 0.16);
+  --amber-fg: #e0a94a;
+  --amber-bg: rgba(224, 169, 74, 0.16);
+  --violet-fg: #c0a3e0;
+  --violet-bg: rgba(160, 130, 200, 0.18);
+  --neutral-fg: #c2b49a;
+  --neutral-bg: rgba(240, 225, 200, 0.08);
+
+  --backdrop: rgba(4, 4, 6, 0.6);
+}
+
 @layer base {
   html,
   body,
@@ -9,78 +94,142 @@
     height: 100%;
   }
   body {
-    @apply bg-slate-100 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    @apply rounded-card border border-line bg-surface shadow-card;
   }
+
+  /* Chips / badges — mono, soft fill, colored text. One class per status
+     color; used for operation types, page types, job states, plan tags. */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-[3px] font-mono text-[11px] font-semibold leading-none tracking-[0.02em];
   }
   .chip-neutral {
-    @apply chip bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300;
+    @apply chip;
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
   }
   .chip-emerald {
-    @apply chip bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300;
+    @apply chip;
+    background: var(--em-bg);
+    color: var(--em-fg);
   }
   .chip-rose {
-    @apply chip bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300;
+    @apply chip;
+    background: var(--rose-bg);
+    color: var(--rose-fg);
   }
   .chip-sky {
-    @apply chip bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300;
+    @apply chip;
+    background: var(--sky-bg);
+    color: var(--sky-fg);
   }
   .chip-amber {
-    @apply chip bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300;
+    @apply chip;
+    background: var(--amber-bg);
+    color: var(--amber-fg);
   }
   .chip-violet {
-    @apply chip bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300;
+    @apply chip;
+    background: var(--violet-bg);
+    color: var(--violet-fg);
   }
+
   .input {
-    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:placeholder:text-slate-500;
+    @apply w-full rounded-lg border border-line-2 bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply border-transparent bg-indigo-600 text-white hover:bg-indigo-500 dark:border-transparent dark:bg-indigo-600 dark:text-white dark:hover:bg-indigo-500;
+    @apply border-transparent text-accent-fg hover:brightness-105;
+    background: var(--accent);
+  }
+  .btn-primary:hover {
+    background: var(--accent-2);
   }
   .btn-danger {
-    @apply border-transparent bg-rose-600 text-white hover:bg-rose-500 dark:border-transparent dark:bg-rose-600 dark:text-white dark:hover:bg-rose-500;
+    @apply border-transparent text-white;
+    background: var(--rose-fg);
   }
   .btn-sm {
     @apply px-2 py-1 text-xs;
   }
+
+  /* Wikilinks: resolved = accent link; unresolved = muted, not clickable. */
   .wikilink {
-    @apply border-b border-dotted border-sky-500/60 text-sky-600 no-underline hover:border-solid dark:text-sky-400;
+    @apply cursor-pointer text-accent no-underline hover:underline;
   }
   .wikilink-unresolved {
-    @apply cursor-help border-b border-dotted border-slate-400/50 text-slate-400 dark:text-slate-500;
+    @apply cursor-help text-ink-3;
+  }
+
+  /* Loading shimmer skeleton block. */
+  .skeleton {
+    @apply rounded-md;
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      var(--inset) 37%,
+      var(--surface-2) 63%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.3s linear infinite;
   }
 }
 
-/* Rendered markdown content */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+/* ============================================================
+   Rendered markdown (wiki pages, chat answers)
+   ============================================================ */
 .markdown-body {
-  @apply text-sm leading-7 text-slate-700 dark:text-slate-300;
+  @apply text-[13.5px] leading-7 text-ink-2;
 }
 .markdown-body > :first-child {
   margin-top: 0;
 }
 .markdown-body h1 {
-  @apply mb-4 mt-8 border-b border-slate-200 pb-2 text-2xl font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100;
+  @apply mb-4 mt-8 border-b border-line pb-2 text-2xl text-ink;
+  font-family: var(--font-display);
 }
 .markdown-body h2 {
-  @apply mb-3 mt-7 text-xl font-semibold text-slate-900 dark:text-slate-100;
+  @apply mb-3 mt-7 text-xl text-ink;
+  font-family: var(--font-display);
 }
 .markdown-body h3 {
-  @apply mb-2 mt-5 text-base font-semibold text-slate-900 dark:text-slate-100;
+  @apply mb-2 mt-5 text-base text-ink;
+  font-family: var(--font-display);
 }
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  @apply mb-2 mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100;
+  @apply mb-2 mt-4 text-sm font-semibold text-ink;
 }
 .markdown-body p {
   @apply my-3;
@@ -95,32 +244,35 @@
   @apply my-1;
 }
 .markdown-body a:not(.wikilink):not(.wikilink-unresolved) {
-  @apply text-sky-600 underline decoration-sky-500/40 underline-offset-2 hover:decoration-sky-500 dark:text-sky-400;
+  @apply text-accent underline decoration-accent-line underline-offset-2 hover:decoration-current;
 }
 .markdown-body blockquote {
-  @apply my-3 border-l-4 border-slate-300 pl-4 text-slate-500 dark:border-slate-700 dark:text-slate-400;
+  @apply my-3 border-l-2 border-line-strong pl-4 text-ink-3;
 }
 .markdown-body code {
-  @apply rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[0.85em] dark:bg-slate-800;
+  @apply rounded px-1 py-0.5 font-mono text-[0.85em];
+  background: var(--inset);
 }
 .markdown-body pre {
-  @apply my-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-slate-100 dark:bg-black/60;
+  @apply my-3 overflow-x-auto rounded-lg p-4 font-mono text-ink;
+  background: var(--inset);
 }
 .markdown-body pre code {
-  @apply bg-transparent p-0 text-xs dark:bg-transparent;
+  @apply bg-transparent p-0 text-xs;
 }
 .markdown-body table {
   @apply my-4 block max-w-full overflow-x-auto border-collapse text-xs;
 }
 .markdown-body th {
-  @apply border border-slate-300 bg-slate-100 px-3 py-1.5 text-left font-semibold dark:border-slate-700 dark:bg-slate-800;
+  @apply border border-line px-3 py-1.5 text-left font-semibold;
+  background: var(--surface-2);
 }
 .markdown-body td {
-  @apply border border-slate-300 px-3 py-1.5 align-top dark:border-slate-700;
+  @apply border border-line px-3 py-1.5 align-top;
 }
 .markdown-body img {
-  @apply my-4 max-w-full rounded-lg border border-slate-200 dark:border-slate-800;
+  @apply my-4 max-w-full rounded-lg border border-line;
 }
 .markdown-body hr {
-  @apply my-6 border-slate-200 dark:border-slate-800;
+  @apply my-6 border-line;
 }

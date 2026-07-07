@@ -17,11 +17,19 @@ export function JobStateBadge({ state }: { state: JobState }) {
   return (
     <span className={STATE_STYLES[state]}>
       {state === "running" && (
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+        <span className="h-1.5 w-1.5 animate-pulse2 rounded-full bg-current" />
       )}
       {state}
     </span>
   );
+}
+
+/** Colored log line: ✓/OK → emerald, ✕/ERROR → rose, $/plain → ink. */
+function logLineClass(line: string): string {
+  const t = line.trimStart();
+  if (t.startsWith("✓") || /\bOK\b/.test(t)) return "text-em-fg";
+  if (t.startsWith("✕") || /ERROR/i.test(t)) return "text-rose-fg";
+  return "text-ink";
 }
 
 interface JobProgressProps {
@@ -91,20 +99,20 @@ export default function JobProgress({ jobId, onFinished }: JobProgressProps) {
       <div className="mb-2 flex items-center gap-2">
         {state ? <JobStateBadge state={state} /> : <span className="chip-neutral">connecting…</span>}
         {connectionLost && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
+          <span className="text-xs text-amber-fg">
             Connection lost — reconnecting…
           </span>
         )}
       </div>
       <div
         ref={logRef}
-        className="h-48 overflow-y-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-300"
+        className="h-48 overflow-y-auto rounded-lg border border-line bg-inset p-3 font-mono text-xs leading-5 text-ink-2"
       >
         {lines.length === 0 && !detail && (
-          <span className="text-slate-500">Waiting for output…</span>
+          <span className="text-ink-3">Waiting for output…</span>
         )}
         {lines.map((line, i) => (
-          <div key={i} className="whitespace-pre-wrap break-words">
+          <div key={i} className={`whitespace-pre-wrap break-words ${logLineClass(line)}`}>
             {line}
           </div>
         ))}
@@ -112,10 +120,10 @@ export default function JobProgress({ jobId, onFinished }: JobProgressProps) {
           <div
             className={`mt-1 whitespace-pre-wrap break-words font-semibold ${
               state === "failed"
-                ? "text-rose-400"
+                ? "text-rose-fg"
                 : state === "skipped"
-                  ? "text-amber-400"
-                  : "text-emerald-400"
+                  ? "text-amber-fg"
+                  : "text-em-fg"
             }`}
           >
             {detail}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
 import { getStatus } from "../api/client";
+import { useTheme } from "../lib/theme";
 
 const NAV = [
   {
@@ -47,7 +48,16 @@ function NavIcon({ path }: { path: string }) {
   );
 }
 
+/**
+ * Collapse a leading home directory (`/Users/<name>/` or `/home/<name>/`) to
+ * `~/` for display. The full absolute path is preserved for the tooltip.
+ */
+function abbreviateHome(path: string): string {
+  return path.replace(/^\/(?:Users|home)\/[^/]+\//, "~/");
+}
+
 export default function AppLayout() {
+  const { theme, toggle } = useTheme();
   const { data: status } = useQuery({
     queryKey: ["status"],
     queryFn: getStatus,
@@ -56,24 +66,26 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-12 items-center gap-2 border-b border-slate-200 px-4 dark:border-slate-800">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600 text-[11px] font-bold text-white">
+      <aside className="flex w-52 shrink-0 flex-col border-r border-line bg-panel">
+        <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
+          <span className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-accent font-mono text-[11px] font-extrabold leading-none text-accent-fg shadow-card">
             KB
           </span>
-          <span className="text-sm font-semibold tracking-tight">OpenKB</span>
+          <span className="font-display text-[17px] font-semibold leading-none tracking-tight">
+            OpenKB
+          </span>
         </div>
-        <nav className="flex-1 space-y-0.5 p-2">
+        <nav className="flex-1 space-y-0.5 px-2.5 py-2" aria-label="Primary">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                `flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    ? "border-accent-line bg-accent-soft text-accent"
+                    : "border-transparent text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`
               }
             >
@@ -82,38 +94,95 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-slate-200 p-3 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+        <div className="border-t border-line px-4 py-3 text-[11px] text-ink-3">
           Web UI for OpenKB
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
+        <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line bg-panel pl-4 pr-3">
           {status ? (
             <>
               <span
-                className="min-w-0 truncate font-mono text-xs text-slate-500 dark:text-slate-400"
+                className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-ink-2"
                 title={status.kb_dir}
               >
-                {status.kb_dir}
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.4}
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5 shrink-0"
+                  aria-hidden="true"
+                >
+                  <path d="M2 4.3A1 1 0 0 1 3 3.3h3l1.3 1.4h5.7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
+                </svg>
+                <span className="truncate">{abbreviateHome(status.kb_dir)}</span>
               </span>
-              <span className="chip-neutral shrink-0" title="Configured model">
+              <span
+                className="chip-neutral shrink-0 gap-1.5"
+                title="Configured model"
+              >
+                <span className="h-[5px] w-[5px] rounded-full bg-em-fg" />
                 {status.model}
               </span>
               <span className="chip-neutral shrink-0" title="Configured language">
                 {status.language}
               </span>
-              <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label="Toggle theme"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+              >
+                {theme === "dark" ? (
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinejoin="round"
+                    className="h-[15px] w-[15px]"
+                    aria-hidden="true"
+                  >
+                    <path d="M13.2 9.1A5.2 5.2 0 0 1 6.9 2.8 5.4 5.4 0 1 0 13.2 9.1z" />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <circle cx="8" cy="8" r="3.1" />
+                    <path d="M8 1.4v1.6M8 13v1.6M1.4 8h1.6M13 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" />
+                  </svg>
+                )}
+              </button>
+              <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 py-1.5 pl-2.5 pr-3">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    status.busy ? "animate-pulse bg-amber-500" : "bg-emerald-500"
+                    status.busy
+                      ? "animate-pulse2 bg-amber-fg"
+                      : "bg-em-fg"
                   }`}
                 />
-                {status.busy ? "Working" : "Idle"}
-              </span>
+                <span
+                  className={`text-[11.5px] font-semibold ${
+                    status.busy ? "text-amber-fg" : "text-em-fg"
+                  }`}
+                >
+                  {status.busy ? "Working" : "Idle"}
+                </span>
+              </div>
             </>
           ) : (
-            <span className="text-xs text-slate-400">Connecting to backend…</span>
+            <span className="text-xs text-ink-3">Connecting to backend…</span>
           )}
         </header>
         <main className="min-h-0 flex-1 overflow-hidden">

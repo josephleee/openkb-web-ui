@@ -19,10 +19,10 @@ import { EmptyState, ErrorState, Spinner } from "../components/States";
 import { formatDateTime, formatRelative } from "../lib/format";
 
 const PLAN_ACTION_STYLES: Record<RemovePlanAction, string> = {
-  DELETE: "text-rose-600 dark:text-rose-400",
-  MODIFY: "text-amber-600 dark:text-amber-400",
-  REGISTRY: "text-slate-500 dark:text-slate-400",
-  PAGEINDEX: "text-violet-600 dark:text-violet-400",
+  DELETE: "text-rose-fg",
+  MODIFY: "text-amber-fg",
+  REGISTRY: "text-neutral-fg",
+  PAGEINDEX: "text-sky-fg",
 };
 
 const TERMINAL_JOB_STATES: ReadonlySet<JobState> = new Set([
@@ -49,10 +49,10 @@ function UploadDropzone({
 
   return (
     <div
-      className={`flex h-full min-h-[8.5rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+      className={`flex h-full min-h-[8.5rem] cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-6 text-center transition-colors ${
         dragging
-          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10"
-          : "border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600"
+          ? "border-accent bg-accent-soft"
+          : "border-line-strong hover:border-accent-line"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -83,15 +83,30 @@ function UploadDropzone({
         }}
       />
       {uploading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
+        <div className="flex items-center gap-2 text-sm text-ink-2">
           <Spinner /> Uploading…
         </div>
       ) : (
         <>
-          <div className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            Drop files here or click to browse
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-accent"
+            aria-hidden="true"
+          >
+            <path d="M12 15V4M8 8l4-4 4 4" />
+            <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+          </svg>
+          <div className="mt-3 text-sm font-medium text-ink">
+            Drop files to add — or click to browse
           </div>
-          <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+          <div className="mt-2 max-w-[400px] font-mono text-xs text-ink-3">
             {SUPPORTED_EXTENSIONS.join(" ")}
           </div>
         </>
@@ -113,13 +128,13 @@ function JobsPanel({
 }) {
   if (jobs.length === 0) {
     return (
-      <p className="px-1 py-2 text-xs text-slate-400 dark:text-slate-500">
-        No jobs yet. Uploads, removals, and recompiles appear here with live progress.
+      <p className="px-1 py-6 text-center text-xs text-ink-3">
+        No jobs yet. Uploads, removals, and recompiles appear here with live logs.
       </p>
     );
   }
   return (
-    <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+    <ul className="divide-y divide-line">
       {jobs.map((job) => {
         const active = job.state === "queued" || job.state === "running";
         const expanded = expandedId === job.id;
@@ -128,15 +143,15 @@ function JobsPanel({
             <div className="flex items-center gap-3">
               <JobStateBadge state={job.state} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-slate-700 dark:text-slate-200" title={job.label}>
+                <div className="truncate text-sm text-ink" title={job.label}>
                   {job.label}
                 </div>
-                <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                <div className="font-mono text-[11px] text-ink-3">
                   {job.kind} · created {formatRelative(job.created_at)}
                   {job.finished_at && ` · finished ${formatDateTime(job.finished_at)}`}
                 </div>
                 {job.detail && !expanded && (
-                  <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400" title={job.detail}>
+                  <div className="mt-0.5 truncate text-xs text-ink-2" title={job.detail}>
                     {job.detail}
                   </div>
                 )}
@@ -277,22 +292,22 @@ export default function DocumentsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Documents</h1>
-          <p className="text-sm text-slate-400 dark:text-slate-500">
+          <h1 className="font-display text-2xl font-semibold text-ink">Documents</h1>
+          <p className="text-sm text-ink-3">
             {docs.length} document{docs.length === 1 ? "" : "s"} in the knowledge base
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="mb-3 text-sm font-semibold text-ink">
               Upload files
             </h2>
             <UploadDropzone onFiles={(files) => void handleFiles(files)} uploading={uploading} />
             {uploadErrors.length > 0 && (
               <ul className="mt-2 space-y-0.5">
                 {uploadErrors.map((err, i) => (
-                  <li key={i} className="text-xs text-rose-600 dark:text-rose-400">
+                  <li key={i} className="text-xs text-rose-fg">
                     {err}
                   </li>
                 ))}
@@ -301,7 +316,7 @@ export default function DocumentsPage() {
           </div>
 
           <div className="card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="mb-3 text-sm font-semibold text-ink">
               Add from URL
             </h2>
             <form onSubmit={onAddUrl} className="flex gap-2">
@@ -317,14 +332,14 @@ export default function DocumentsPage() {
                 className="btn btn-primary shrink-0"
                 disabled={!/^https?:\/\//i.test(url.trim()) || urlMutation.isPending}
               >
-                {urlMutation.isPending ? <Spinner className="h-4 w-4 text-white" /> : "Add"}
+                {urlMutation.isPending ? <Spinner className="h-4 w-4 text-accent-fg" /> : "Add"}
               </button>
             </form>
-            <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-              PDFs are downloaded; HTML pages are converted to markdown.
+            <p className="mt-2 text-[11px] text-ink-3">
+              Web pages are fetched and converted to markdown.
             </p>
             {urlMutation.isError && (
-              <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+              <p className="mt-2 text-xs text-rose-fg">
                 {errorMessage(urlMutation.error)}
               </p>
             )}
@@ -332,7 +347,7 @@ export default function DocumentsPage() {
         </div>
 
         <section className="card p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <h2 className="mb-3 text-sm font-semibold text-ink">
             Library
           </h2>
           {documents.isError ? (
@@ -350,22 +365,22 @@ export default function DocumentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:text-slate-500">
-                    <th className="py-2 pr-4 font-medium">Name</th>
-                    <th className="py-2 pr-4 font-medium">Type</th>
-                    <th className="py-2 pr-4 font-medium">Pages</th>
-                    <th className="py-2 pr-4 font-medium">Summary</th>
-                    <th className="py-2 font-medium">Actions</th>
+                  <tr className="border-b border-line font-mono text-[10px] uppercase tracking-[0.07em] text-ink-3">
+                    <th className="py-2 pr-4 font-semibold">Name</th>
+                    <th className="py-2 pr-4 font-semibold">Type</th>
+                    <th className="py-2 pr-4 font-semibold">Pages</th>
+                    <th className="py-2 pr-4 font-semibold">Summary</th>
+                    <th className="py-2 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-line">
                   {docs.map((doc) => (
-                    <tr key={doc.doc_name}>
+                    <tr key={doc.doc_name} className="group">
                       <td className="max-w-xs py-2.5 pr-4">
-                        <div className="truncate font-medium text-slate-700 dark:text-slate-200" title={doc.name}>
+                        <div className="truncate font-medium text-ink" title={doc.name}>
                           {doc.name}
                         </div>
-                        <div className="truncate font-mono text-[11px] text-slate-400 dark:text-slate-500" title={doc.doc_name}>
+                        <div className="truncate font-mono text-[11px] text-ink-3" title={doc.doc_name}>
                           {doc.doc_name}
                         </div>
                       </td>
@@ -378,28 +393,28 @@ export default function DocumentsPage() {
                           {doc.display_type}
                         </span>
                       </td>
-                      <td className="py-2.5 pr-4 tabular-nums text-slate-500 dark:text-slate-400">
+                      <td className="py-2.5 pr-4 font-mono tabular-nums text-ink-2">
                         {doc.pages ?? "—"}
                       </td>
                       <td className="py-2.5 pr-4">
                         {doc.has_summary ? (
                           <Link
                             to={`/wiki/summaries/${doc.doc_name}`}
-                            className="text-sky-600 hover:underline dark:text-sky-400"
+                            className="text-accent hover:underline"
                           >
                             View
                           </Link>
                         ) : (
-                          <span className="text-slate-300 dark:text-slate-600">—</span>
+                          <span className="text-ink-3">—</span>
                         )}
                       </td>
                       <td className="py-2.5">
-                        <div className="flex gap-1.5">
+                        <div className="flex justify-end gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                           <button className="btn btn-sm" onClick={() => setRecompileTarget(doc)}>
                             Recompile
                           </button>
                           <button
-                            className="btn btn-sm text-rose-600 dark:text-rose-400"
+                            className="btn btn-sm btn-danger"
                             onClick={() => {
                               setKeepRaw(false);
                               setRemoveTarget(doc);
@@ -418,7 +433,12 @@ export default function DocumentsPage() {
         </section>
 
         <section className="card p-4">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Jobs</h2>
+          <h2 className="mb-1 flex items-center gap-2.5 text-sm font-semibold text-ink">
+            Jobs
+            {(jobs.data ?? []).some((j) => j.state === "queued" || j.state === "running") && (
+              <span className="h-1.5 w-1.5 animate-pulse2 rounded-full bg-amber-fg" />
+            )}
+          </h2>
           {jobs.isError ? (
             <ErrorState error={jobs.error} onRetry={() => void jobs.refetch()} />
           ) : (
@@ -449,32 +469,32 @@ export default function DocumentsPage() {
         }}
       >
         {plan.isLoading ? (
-          <div className="flex items-center gap-2 text-slate-500">
+          <div className="flex items-center gap-2 text-ink-2">
             <Spinner /> Computing removal plan…
           </div>
         ) : plan.isError ? (
           <ErrorState error={plan.error} onRetry={() => void plan.refetch()} />
         ) : (
           <>
-            <p className="text-slate-600 dark:text-slate-300">
+            <p className="text-ink-2">
               The following changes will be applied:
             </p>
-            <ul className="mt-2 max-h-56 space-y-0.5 overflow-y-auto rounded-lg bg-slate-50 p-3 font-mono text-xs dark:bg-slate-950">
+            <ul className="mt-2 max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-line bg-inset p-3 font-mono text-xs">
               {(plan.data ?? []).map((line, i) => (
                 <li key={i} className="flex gap-2">
                   <span className={`w-20 shrink-0 font-semibold ${PLAN_ACTION_STYLES[line.action] ?? ""}`}>
                     {line.action}
                   </span>
-                  <span className="break-all text-slate-600 dark:text-slate-300">
+                  <span className="break-all text-ink-2">
                     {line.target}
                   </span>
                 </li>
               ))}
               {(plan.data ?? []).length === 0 && (
-                <li className="text-slate-400">Nothing to change.</li>
+                <li className="text-ink-3">Nothing to change.</li>
               )}
             </ul>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-ink-2">
               <input
                 type="checkbox"
                 checked={keepRaw}
@@ -485,7 +505,7 @@ export default function DocumentsPage() {
           </>
         )}
         {removeMutation.isError && (
-          <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+          <p className="mt-2 text-xs text-rose-fg">
             {errorMessage(removeMutation.error)}
           </p>
         )}
@@ -499,12 +519,12 @@ export default function DocumentsPage() {
         onConfirm={() => recompileTarget && recompileMutation.mutate(recompileTarget.doc_name)}
         onClose={() => setRecompileTarget(null)}
       >
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-ink-2">
           The LLM regenerates this document&apos;s summary, concept, and entity pages from
           its stored source. Manual edits to those generated pages will be overwritten.
         </p>
         {recompileMutation.isError && (
-          <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+          <p className="mt-2 text-xs text-rose-fg">
             {errorMessage(recompileMutation.error)}
           </p>
         )}

@@ -84,13 +84,16 @@ export default function ConfirmDialog({
       aria-label={title}
     >
       <div
-        className="absolute inset-0 bg-slate-950/50"
+        className="absolute inset-0 backdrop-blur-[3px]"
+        style={{ background: "var(--backdrop)" }}
         onClick={busy ? undefined : onClose}
       />
-      <div ref={dialogRef} tabIndex={-1} className="card relative w-full max-w-lg p-5 outline-none">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-          {title}
-        </h2>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="card relative w-full max-w-lg rounded-2xl p-5 shadow-pop outline-none"
+      >
+        <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
         {children && <div className="mt-3 text-sm">{children}</div>}
         <div className="mt-5 flex justify-end gap-2">
           <button className="btn" onClick={onClose} disabled={busy}>

@@ -9,25 +9,20 @@ import { useNavigate } from "react-router-dom";
 import { getGraph } from "../api/client";
 import type { GraphEdge, GraphNode } from "../api/types";
 import { EmptyState, ErrorState, PageLoading } from "../components/States";
-import { usePrefersDark } from "../lib/theme";
+import { useIsDark } from "../lib/theme";
 
 type FgNode = NodeObject<GraphNode>;
 type FgLink = LinkObject<GraphNode, GraphEdge>;
 
-// Node colors are keyed off the server's `types` array order (the legend contract).
-const PALETTE = [
-  "#0ea5e9",
-  "#8b5cf6",
-  "#f59e0b",
-  "#10b981",
-  "#ef4444",
-  "#ec4899",
-  "#14b8a6",
-  "#f97316",
-  "#6366f1",
-  "#84cc16",
-];
-const FALLBACK_COLOR = "#94a3b8";
+// Canvas needs literal hex (not CSS vars). Node colors are keyed by the
+// server's type name, with a per-theme light/dark pair each.
+const NODE_COLORS: Record<string, { light: string; dark: string }> = {
+  Concept: { light: "#7c50eb", dark: "#a78bfa" },
+  Summary: { light: "#0a72c0", dark: "#38bdf8" },
+  Organization: { light: "#d69614", dark: "#fbbf24" },
+  Entity: { light: "#0c9a5f", dark: "#34d399" },
+};
+const FALLBACK_COLOR = { light: "#948a75", dark: "#8d7e68" };
 
 function nodeRadius(node: GraphNode): number {
   return 2.5 + Math.sqrt(node.in + node.out);
@@ -35,7 +30,7 @@ function nodeRadius(node: GraphNode): number {
 
 export default function GraphPage() {
   const navigate = useNavigate();
-  const dark = usePrefersDark();
+  const dark = useIsDark();
   const graphQuery = useQuery({ queryKey: ["graph"], queryFn: getGraph });
   const graph = graphQuery.data;
 
@@ -119,10 +114,10 @@ export default function GraphPage() {
 
   const colorFor = useCallback(
     (type: string) => {
-      const index = graph?.types.indexOf(type) ?? -1;
-      return index === -1 ? FALLBACK_COLOR : PALETTE[index % PALETTE.length];
+      const entry = NODE_COLORS[type] ?? FALLBACK_COLOR;
+      return dark ? entry.dark : entry.light;
     },
-    [graph],
+    [dark],
   );
 
   const typeCounts = useMemo(() => {
@@ -184,7 +179,7 @@ export default function GraphPage() {
         ctx.beginPath();
         ctx.arc(x, y, r + 3 / scale, 0, 2 * Math.PI);
         ctx.lineWidth = 2 / scale;
-        ctx.strokeStyle = dark ? "#f8fafc" : "#0f172a";
+        ctx.strokeStyle = dark ? "#f0e7d5" : "#221d15";
         ctx.stroke();
       }
       if (scale > 1.4 || highlighted) {
@@ -192,7 +187,7 @@ export default function GraphPage() {
         ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = dark ? "#cbd5e1" : "#334155";
+        ctx.fillStyle = dark ? "#c2b49a" : "#5b5344";
         ctx.fillText(node.label, x, y + r + 2 / scale);
       }
     },
@@ -239,13 +234,13 @@ export default function GraphPage() {
               graphData={data}
               nodeVisibility={isNodeVisible}
               linkVisibility={isLinkVisible}
-              backgroundColor={dark ? "#020617" : "#f8fafc"}
+              backgroundColor={dark ? "#1c1610" : "#f2ecdf"}
               nodeLabel={(node) => `${node.label} · ${node.type}`}
               nodeCanvasObject={drawNode}
               nodeCanvasObjectMode={() => "replace"}
               nodePointerAreaPaint={paintPointerArea}
               linkColor={() =>
-                dark ? "rgba(148, 163, 184, 0.3)" : "rgba(100, 116, 139, 0.3)"
+                dark ? "rgba(255, 255, 255, 0.16)" : "rgba(20, 22, 28, 0.16)"
               }
               linkDirectionalArrowLength={3}
               linkDirectionalArrowRelPos={1}
@@ -266,19 +261,19 @@ export default function GraphPage() {
 
           <form onSubmit={onSearchSubmit} className="absolute left-4 top-4 w-64">
             <input
-              className="input shadow-sm"
+              className="input shadow-card"
               placeholder="Search nodes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search graph nodes"
             />
             {matches.length > 0 && (
-              <ul className="card mt-1 max-h-64 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+              <ul className="card mt-1 max-h-64 divide-y divide-line overflow-y-auto p-0">
                 {matches.map((node) => (
                   <li key={String(node.id)}>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-2"
                       onClick={() => {
                         focusNode(node);
                         setSearch("");
@@ -288,49 +283,45 @@ export default function GraphPage() {
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: colorFor(node.type) }}
                       />
-                      <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
-                        {node.label}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-slate-400">{node.type}</span>
+                      <span className="min-w-0 flex-1 truncate text-ink">{node.label}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-ink-3">{node.type}</span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
             {search.trim() && matches.length === 0 && (
-              <div className="card mt-1 px-3 py-2 text-xs text-slate-400">No matching nodes</div>
+              <div className="card mt-1 px-3 py-2 text-xs text-ink-3">No matching nodes</div>
             )}
           </form>
 
           <div className="card absolute right-4 top-4 w-52 p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <div className="mb-2 font-mono text-xs font-semibold uppercase tracking-wide text-ink-3">
               Types
             </div>
             <div className="space-y-1">
               {graph.types.map((type) => (
                 <label
                   key={type}
-                  className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-slate-300"
+                  className="flex cursor-pointer items-center gap-2 text-xs text-ink-2"
                 >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: colorFor(type) }}
+                  />
                   <input
                     type="checkbox"
                     checked={!hiddenTypes.has(type)}
                     onChange={() => toggleType(type)}
                   />
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: colorFor(type) }}
-                  />
                   <span className="min-w-0 flex-1 truncate">{type}</span>
-                  <span className="shrink-0 text-slate-400 dark:text-slate-500">
-                    {typeCounts[type] ?? 0}
-                  </span>
+                  <span className="shrink-0 font-mono text-ink-3">{typeCounts[type] ?? 0}</span>
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 rounded-md bg-white/80 px-2 py-1 text-[11px] text-slate-500 backdrop-blur dark:bg-slate-900/80 dark:text-slate-400">
+          <div className="absolute bottom-4 left-4 rounded-md bg-surface/80 px-2 py-1 text-[11px] text-ink-3 backdrop-blur">
             {visibleCounts.nodes} nodes · {visibleCounts.links} edges — click a node to open its page
           </div>
         </>

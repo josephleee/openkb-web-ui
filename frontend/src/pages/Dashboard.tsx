@@ -8,36 +8,52 @@ import { formatRelative } from "../lib/format";
 
 const OPERATION_STYLES: Record<string, string> = {
   add: "chip-emerald",
+  ingest: "chip-emerald",
   remove: "chip-rose",
   recompile: "chip-sky",
+  query: "chip-sky",
   chat: "chip-violet",
-  query: "chip-violet",
   lint: "chip-amber",
+  init: "chip-neutral",
 };
 
 function operationStyle(op: string): string {
   return OPERATION_STYLES[op.toLowerCase()] ?? "chip-neutral";
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function StatCard({
+  label,
+  value,
+  sub,
+  big = true,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  big?: boolean;
+}) {
   return (
-    <div className="card p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+    <div className="card p-4 transition-colors hover:border-line-strong">
+      <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.09em] text-ink-3">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+      <div
+        className={`mt-3 font-display font-semibold leading-none tracking-tight text-ink ${
+          big ? "text-[34px]" : "text-2xl"
+        }`}
+      >
         {value}
       </div>
-      {sub && <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{sub}</div>}
+      {sub && <div className="mt-2 text-[12.5px] text-ink-3">{sub}</div>}
     </div>
   );
 }
 
 function HealthSection({ label, items }: { label: string; items: string[] }) {
   return (
-    <details className="group rounded-lg border border-slate-200 dark:border-slate-800">
-      <summary className="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-sm">
-        <span className="text-slate-600 dark:text-slate-300">{label}</span>
+    <details className="group border-b border-line last:border-b-0">
+      <summary className="flex cursor-pointer select-none items-center justify-between px-4 py-3 text-[13.5px]">
+        <span className="text-ink-2">{label}</span>
         {items.length === 0 ? (
           <span className="chip-emerald">OK</span>
         ) : (
@@ -45,9 +61,9 @@ function HealthSection({ label, items }: { label: string; items: string[] }) {
         )}
       </summary>
       {items.length > 0 && (
-        <ul className="max-h-48 space-y-1 overflow-y-auto border-t border-slate-200 px-3 py-2 dark:border-slate-800">
+        <ul className="max-h-48 space-y-1 overflow-y-auto border-t border-line px-4 py-2">
           {items.map((item, i) => (
-            <li key={i} className="break-words font-mono text-xs text-slate-500 dark:text-slate-400">
+            <li key={i} className="break-words font-mono text-xs text-ink-3">
               {item}
             </li>
           ))}
@@ -84,105 +100,151 @@ export default function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-6 p-6">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <div className="mx-auto max-w-[1180px] px-8 py-8">
+        <div className="mb-6">
+          <h1 className="font-display text-[25px] font-semibold leading-tight tracking-tight text-ink">
             Dashboard
           </h1>
-          <p className="text-sm text-slate-400 dark:text-slate-500">
-            Knowledge base at a glance
-          </p>
+          <p className="mt-0.5 text-[14px] text-ink-3">Knowledge base at a glance.</p>
         </div>
 
         {status.isError ? (
           <ErrorState error={status.error} onRetry={() => void status.refetch()} />
+        ) : status.isLoading ? (
+          <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton h-[104px]" />
+            ))}
+          </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Documents" value={counts ? String(counts.documents) : "…"} sub={counts ? `${counts.raw} raw files` : undefined} />
-            <StatCard label="Concepts" value={counts ? String(counts.concepts) : "…"} sub={counts ? `${counts.summaries} summaries` : undefined} />
-            <StatCard label="Entities" value={counts ? String(counts.entities) : "…"} sub={counts ? `${counts.explorations} explorations` : undefined} />
+          <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+            <StatCard
+              label="Documents"
+              value={counts ? String(counts.documents) : "0"}
+              sub={counts ? `${counts.raw} raw files` : undefined}
+            />
+            <StatCard
+              label="Concepts"
+              value={counts ? String(counts.concepts) : "0"}
+              sub={counts ? `${counts.summaries} summaries` : undefined}
+            />
+            <StatCard
+              label="Entities"
+              value={counts ? String(counts.entities) : "0"}
+              sub={counts ? `${counts.explorations} explorations` : undefined}
+            />
             <StatCard
               label="Last compile"
-              value={status.data ? formatRelative(status.data.last_compile) : "…"}
+              value={status.data ? formatRelative(status.data.last_compile) : "—"}
               sub={status.data ? `last lint ${formatRelative(status.data.last_lint)}` : undefined}
+              big={false}
             />
           </div>
         )}
 
-        <form onSubmit={onAsk} className="card flex items-center gap-2 p-3">
-          <input
-            className="input"
-            placeholder="Ask the knowledge base anything…"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            aria-label="Quick ask"
-          />
-          <button className="btn btn-primary shrink-0" disabled={!question.trim() || ask.isPending}>
-            {ask.isPending ? <Spinner className="h-4 w-4 text-white" /> : "Ask"}
+        <form onSubmit={onAsk} className="mt-6 flex max-w-[640px] items-center gap-2.5">
+          <div className="relative flex-1">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <circle cx="7" cy="7" r="4.3" />
+              <path d="M10.2 10.2 14 14" strokeLinecap="round" />
+            </svg>
+            <input
+              className="input pl-9"
+              placeholder="Ask the knowledge base…"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              aria-label="Ask the knowledge base"
+            />
+          </div>
+          <button
+            className="btn btn-primary shrink-0"
+            disabled={!question.trim() || ask.isPending}
+          >
+            {ask.isPending ? <Spinner className="h-4 w-4 text-accent-fg" /> : "Ask →"}
           </button>
         </form>
         {ask.isError && (
-          <p className="text-xs text-rose-600 dark:text-rose-400">
+          <p className="mt-2 text-xs text-rose-fg">
             Could not start a chat: {errorMessage(ask.error)}
           </p>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section className="card p-4 lg:col-span-2">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        <div className="mt-6 grid gap-[18px] lg:grid-cols-3">
+          <section className="card overflow-hidden lg:col-span-2">
+            <h2 className="border-b border-line px-[17px] py-[13px] text-[13px] font-semibold text-ink">
               Recent activity
             </h2>
-            <div className="mt-3">
-              {activity.isError ? (
+            {activity.isError ? (
+              <div className="p-4">
                 <ErrorState error={activity.error} onRetry={() => void activity.refetch()} />
-              ) : activity.data && activity.data.length === 0 ? (
+              </div>
+            ) : activity.isLoading ? (
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="skeleton h-6" />
+                ))}
+              </div>
+            ) : activity.data && activity.data.length === 0 ? (
+              <div className="p-4">
                 <EmptyState
-                  title="No activity yet"
-                  hint="Operations like add, remove, and recompile are logged here once you add your first document."
+                  title="No recent activity"
+                  hint="Add documents to start building the knowledge base."
                 />
-              ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {(activity.data ?? []).map((entry, i) => (
-                    <li key={i} className="flex items-start gap-3 py-2">
-                      <span className={`mt-0.5 shrink-0 ${operationStyle(entry.operation)}`}>
-                        {entry.operation}
-                      </span>
-                      <span className="min-w-0 flex-1 break-words text-sm text-slate-600 dark:text-slate-300">
-                        {entry.description}
-                      </span>
-                      <span className="shrink-0 font-mono text-[11px] text-slate-400 dark:text-slate-500">
-                        {entry.timestamp}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+              </div>
+            ) : (
+              <ul>
+                {(activity.data ?? []).map((entry, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-[11px] border-b border-line px-[17px] py-[11px] last:border-b-0"
+                  >
+                    <span className={`shrink-0 ${operationStyle(entry.operation)}`}>
+                      {entry.operation}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
+                      {entry.description}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11.5px] font-medium text-ink-3">
+                      {entry.timestamp}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
-          <section className="card h-fit p-4">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <section className="card h-fit overflow-hidden">
+            <h2 className="border-b border-line px-[17px] py-[13px] text-[13px] font-semibold text-ink">
               Wiki health
             </h2>
-            <div className="mt-3 space-y-2">
-              {health.isError ? (
+            {health.isError ? (
+              <div className="p-4">
                 <ErrorState error={health.error} onRetry={() => void health.refetch()} />
-              ) : health.data ? (
-                <>
-                  <HealthSection label="Broken links" items={health.data.broken_links} />
-                  <HealthSection label="Orphan pages" items={health.data.orphans} />
-                  <HealthSection label="Index sync" items={health.data.index_sync} />
-                  <HealthSection
-                    label="Invalid frontmatter"
-                    items={health.data.invalid_frontmatter}
-                  />
-                </>
-              ) : (
-                <div className="flex justify-center py-4">
-                  <Spinner />
-                </div>
-              )}
-            </div>
+              </div>
+            ) : health.data ? (
+              <div>
+                <HealthSection label="Broken links" items={health.data.broken_links} />
+                <HealthSection label="Orphan pages" items={health.data.orphans} />
+                <HealthSection label="Index sync" items={health.data.index_sync} />
+                <HealthSection
+                  label="Invalid frontmatter"
+                  items={health.data.invalid_frontmatter}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="skeleton h-6" />
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

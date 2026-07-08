@@ -9,20 +9,11 @@ import { useNavigate } from "react-router-dom";
 import { getGraph } from "../api/client";
 import type { GraphEdge, GraphNode } from "../api/types";
 import { EmptyState, ErrorState, PageLoading } from "../components/States";
+import { nodeColor } from "../lib/graphColors";
 import { useIsDark } from "../lib/theme";
 
 type FgNode = NodeObject<GraphNode>;
 type FgLink = LinkObject<GraphNode, GraphEdge>;
-
-// Canvas needs literal hex (not CSS vars). Node colors are keyed by the
-// server's type name, with a per-theme light/dark pair each.
-const NODE_COLORS: Record<string, { light: string; dark: string }> = {
-  Concept: { light: "#7c50eb", dark: "#a78bfa" },
-  Summary: { light: "#0a72c0", dark: "#38bdf8" },
-  Organization: { light: "#d69614", dark: "#fbbf24" },
-  Entity: { light: "#0c9a5f", dark: "#34d399" },
-};
-const FALLBACK_COLOR = { light: "#948a75", dark: "#8d7e68" };
 
 function nodeRadius(node: GraphNode): number {
   return 2.5 + Math.sqrt(node.in + node.out);
@@ -112,13 +103,7 @@ export default function GraphPage() {
     [data, isNodeVisible, isLinkVisible],
   );
 
-  const colorFor = useCallback(
-    (type: string) => {
-      const entry = NODE_COLORS[type] ?? FALLBACK_COLOR;
-      return dark ? entry.dark : entry.light;
-    },
-    [dark],
-  );
+  const colorFor = useCallback((type: string) => nodeColor(type, dark), [dark]);
 
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};

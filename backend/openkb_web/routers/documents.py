@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
-from openkb.agent.tools import parse_pages
 from openkb.cli import SUPPORTED_EXTENSIONS, _display_type
 
 from openkb_web.jobqueue import _openkb_argv, openkb_env
@@ -24,6 +23,10 @@ router = APIRouter()
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # OpenKB itself has no size limit
 _UPLOAD_CHUNK = 1024 * 1024
 REMOVE_PLAN_TIMEOUT = 60.0
+# Most pages one ?pages= selection may cover (omit ?pages= to get the whole
+# document). Checked on the parsed range bounds, before anything is allocated
+# per page.
+MAX_PAGES_PER_REQUEST = 100
 
 # "  DELETE   wiki/summaries/x.md", "  MODIFY ...", "  REGISTRY ...", "  PAGEINDEX ..."
 _PLAN_LINE_RE = re.compile(r"^\s{2}(DELETE|MODIFY|REGISTRY|PAGEINDEX)\s+(.+)$")
@@ -31,6 +34,11 @@ _PLAN_LINE_RE = re.compile(r"^\s{2}(DELETE|MODIFY|REGISTRY|PAGEINDEX)\s+(.+)$")
 # doc_name is a sanitized slug; reject separators and option-looking values
 # (a doc_name is interpolated into subprocess argv).
 _DOC_NAME_RE = re.compile(r"^[^/\\]+$")
+
+# One comma-separated part of ?pages=: "7" or "3-5", whitespace allowed around
+# the numbers. ASCII digits only, at most 18 of them, so int() stays trivial
+# and never raises on an absurdly long literal.
+_PAGE_PART_RE = re.compile(r"\s*([0-9]{1,18})\s*(?:-\s*([0-9]{1,18})\s*)?")
 
 
 class UrlIn(BaseModel):
@@ -49,6 +57,54 @@ def _check_doc_name(doc_name: str) -> str:
     ):
         raise HTTPException(status_code=400, detail=f"Invalid document name: {doc_name!r}")
     return doc_name
+
+
+def _parse_page_ranges(spec: str) -> list[tuple[int, int]]:
+    """Parse a ?pages= spec ("3-5,7,10-12") into sorted, merged inclusive ranges.
+
+    Replaces OpenKB's ``parse_pages``, which expands every range into a set of
+    page numbers, so ``1-99999999999`` ran the server out of memory. Nothing
+    proportional to the requested numbers is materialized here: the selection
+    size comes from the range bounds and is capped at MAX_PAGES_PER_REQUEST.
+    Also strict where ``parse_pages`` is tolerant: malformed, zero and
+    reversed parts are rejected rather than silently dropped.
+    """
+    ranges: list[tuple[int, int]] = []
+    for part in spec.split(","):
+        m = _PAGE_PART_RE.fullmatch(part)
+        if m is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid page range {part.strip()!r}; expected e.g. '3', '1-5' or '1-3,7'",
+            )
+        start = int(m.group(1))
+        end = int(m.group(2) or m.group(1))
+        if start < 1:
+            raise HTTPException(status_code=400, detail="Page numbers start at 1")
+        if start > end:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid page range {part.strip()!r}: start is after end",
+            )
+        ranges.append((start, end))
+
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+
+    count = sum(end - start + 1 for start, end in merged)
+    if count > MAX_PAGES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Too many pages requested ({count}); at most {MAX_PAGES_PER_REQUEST} "
+                "per request (omit 'pages' to get the whole document)"
+            ),
+        )
+    return merged
 
 
 def _busy_guard(request: Request) -> None:
@@ -117,6 +173,8 @@ async def get_document_source(
 ) -> dict[str, Any]:
     kb = request.app.state.kb
     _check_doc_name(doc_name)
+    # Validated (and size-capped) up front, before the KB is touched.
+    ranges = _parse_page_ranges(pages) if pages else None
 
     def read() -> dict[str, Any] | None:
         json_path = kb.wiki_dir / "sources" / f"{doc_name}.json"
@@ -124,8 +182,15 @@ async def get_document_source(
         if json_path.is_file():
             data = json.loads(json_path.read_text(encoding="utf-8"))
             total = len(data)
-            if pages:
-                requested = set(parse_pages(pages))
+            if ranges is not None:
+                last = ranges[-1][1]
+                if last > total:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Page {last} is out of range: '{doc_name}' has {total} pages",
+                    )
+                # At most MAX_PAGES_PER_REQUEST numbers, and none past `total`.
+                requested = {p for start, end in ranges for p in range(start, end + 1)}
                 data = [entry for entry in data if entry.get("page") in requested]
             return {
                 "doc_name": doc_name,

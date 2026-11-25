@@ -158,11 +158,12 @@ def app(kb_dir: Path, monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 async def client(app):
     # httpx's ASGITransport does not drive lifespan; run it explicitly so the
-    # job queue worker starts (and stops) exactly like under uvicorn.
+    # job queue worker starts (and stops) exactly like under uvicorn. The base
+    # URL's host must pass the Host allowlist (TrustedHostMiddleware).
     async with app.router.lifespan_context(app):
         transport = ASGITransport(app=app)
         async with AsyncClient(
-            transport=transport, base_url="http://test", timeout=30.0
+            transport=transport, base_url="http://localhost", timeout=30.0
         ) as c:
             yield c
 

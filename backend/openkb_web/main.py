@@ -24,6 +24,7 @@ from starlette.types import Receive, Scope, Send
 
 from openkb_web.jobqueue import JobQueue
 from openkb_web.kb import KBContext
+from openkb_web.openkb_guard import install_parse_pages_guard
 from openkb_web.routers import chat, documents, graph, jobs, pages, status
 
 KB_DIR_ENV = "OPENKB_WEB_KB_DIR"
@@ -120,6 +121,9 @@ class _TrustedHostMiddleware(TrustedHostMiddleware):
 def create_app(kb_dir: str | Path | None = None) -> FastAPI:
     kb_path = resolve_kb_dir(kb_dir)
     allowed_hosts = resolve_allowed_hosts()
+    # Temporary: bound openkb's parse_pages for the chat agent's page tool
+    # (see openkb_guard). Process-global and idempotent; never raises.
+    install_parse_pages_guard()
     jobqueue = JobQueue(kb_path)
     # busy_probe lets read endpoints skip even the non-blocking lock attempt
     # while our own mutation holds OpenKB's exclusive ingest lock.

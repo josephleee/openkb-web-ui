@@ -151,6 +151,9 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 改变状态的请求都受 Origin/同源 CSRF 检查保护，路径参数会做目录穿越检查，传给
 CLI 的文档/URL 参数也会经过校验。请不要把它暴露在不可信的网络中。
 
+完整的安全模型、已知局限、安全部署建议，以及如何私下报告漏洞，请参阅
+[SECURITY.md](SECURITY.md)（英文）。请不要在公开 issue 中报告安全问题。
+
 ## 开发
 
 ```bash

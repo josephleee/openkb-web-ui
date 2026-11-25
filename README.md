@@ -1,8 +1,12 @@
 # OpenKB Web UI
 
+**English** | [한국어](README.ko.md) | [简体中文](README.zh-CN.md)
+
 A self-hostable web interface for [**OpenKB**](https://github.com/VectifyAI/OpenKB) —
 the open-source tool that compiles your documents into an LLM-maintained,
 wiki-style knowledge base.
+
+![Dashboard: mini knowledge graph, KB counts, wiki health, recent activity, and the light/dark theme toggle](docs/assets/dashboard.gif)
 
 OpenKB is CLI-only: it has no REST API and no web UI. This project wraps one
 OpenKB knowledge base with a **FastAPI** backend and a **React** frontend so you
@@ -17,11 +21,45 @@ graph from your browser.
 
 | Section | What it does |
 | --- | --- |
-| **Dashboard** | KB status (documents / concepts / entities / last compile), an activity feed parsed from `wiki/log.md`, and structural health checks (broken links, orphans, index sync, invalid frontmatter). |
+| **Dashboard** | A mini knowledge graph, KB status (documents / concepts / entities / last compile), an ask box that opens a new chat, an activity feed parsed from `wiki/log.md`, and structural health checks (broken links, orphans, index sync, invalid frontmatter). |
 | **Wiki** | Browse every compiled page grouped by kind. Markdown renders with `[[wikilinks]]` turned into navigation — resolved links are clickable, unresolved ones show as muted text — and page images served inline. |
 | **Chat** | Streaming, multi-turn chat over the wiki with a per-answer provenance trail of the tool calls the agent made. Sessions are persisted by OpenKB itself, so they're shared with `openkb chat`. Includes a one-shot query endpoint. |
 | **Documents** | List documents, upload files or add URLs, remove (with a dry-run plan you confirm), and recompile — all with live job progress streamed over SSE. |
-| **Graph** | Interactive force-directed knowledge graph built from OpenKB's own `build_graph()`, colored by node type, click a node to open its page. |
+| **Graph** | Interactive force-directed knowledge graph built from OpenKB's own `build_graph()`, colored by node type, with node search and type filters. Click a node to open its page. |
+
+Light and dark themes are built in.
+
+## Tour
+
+Every clip below was recorded from the real UI running on the demo knowledge
+base (see [Try it without a knowledge base](#try-it-without-a-knowledge-base)).
+
+### Wiki
+
+Pick a page from the tree, then follow `[[wikilinks]]` from page to page.
+
+![Wiki: opening a concept page and following wikilinks to related pages](docs/assets/wiki.gif)
+
+### Chat
+
+Reopen a saved session and jump from a cited page straight into the wiki. The
+clip shows the session that ships with the demo KB; asking new questions needs
+an LLM key.
+
+![Chat: opening a saved session and following a cited page into the wiki](docs/assets/chat.gif)
+
+### Documents
+
+Removing a document shows a dry-run plan first; once you confirm, the job log
+streams in live.
+
+![Documents: reviewing the removal plan for a document and watching the job log](docs/assets/documents.gif)
+
+### Graph
+
+Search for a node, filter by type, and click a node to open its page.
+
+![Graph: searching nodes, toggling a type filter, and clicking a node to open its page](docs/assets/graph.gif)
 
 ## Architecture
 
@@ -48,7 +86,7 @@ openkb-web-ui/
 ├── backend/        FastAPI app (Python ≥3.11, uv-managed) wrapping the openkb package
 ├── frontend/       Vite + React 18 + TypeScript + Tailwind
 ├── scripts/        make_demo_kb.py — build a synthetic KB with no LLM calls
-└── docs/           design spec
+└── docs/           design spec, README assets
 ```
 
 ## Quick start
@@ -89,9 +127,13 @@ cd frontend && npm install && npm run dev
 LLM calls), so you can explore every read-only screen immediately:
 
 ```bash
-cd backend && uv sync
+# 1. Build the frontend (skip if you already did)
+cd frontend && npm install && npm run build
+
+# 2. Create the demo KB and serve it
+cd ../backend && uv sync
 uv run python ../scripts/make_demo_kb.py /tmp/demo-kb
-uv run openkb-web --kb-dir /tmp/demo-kb
+uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 ```
 
 ## Configuration
@@ -126,7 +168,7 @@ cd frontend && npx tsc --noEmit && npm run build && npx vitest run
 
 ## Compatibility
 
-Pinned to `openkb == 0.4.x`. The in-process reads depend on some of OpenKB's
+Pinned to `openkb==0.4.3`. The in-process reads depend on some of OpenKB's
 internal helpers (e.g. `lint._WIKILINK_RE`), so the version pin matters — expect
 to revisit it when OpenKB changes its layout.
 

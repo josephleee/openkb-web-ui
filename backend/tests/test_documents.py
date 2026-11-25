@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import time
+import tracemalloc
 from pathlib import Path
+
+import pytest
+
+from openkb_web.routers.documents import MAX_PAGES_PER_REQUEST
+
+SURVEY_SOURCE = "/api/documents/transformers-survey/source"  # 3-page pageindex doc
 
 
 async def test_documents_join(client):
@@ -97,6 +105,70 @@ async def test_document_source_invalid_doc_name(client):
     assert resp.status_code == 400
     resp = await client.get("/api/documents/.dotted/source")
     assert resp.status_code == 400
+
+
+async def test_document_source_page_lists_and_overlaps(client):
+    resp = await client.get(SURVEY_SOURCE, params={"pages": "1,3"})
+    assert resp.status_code == 200
+    assert [p["page"] for p in resp.json()["pages"]] == [1, 3]
+
+    resp = await client.get(SURVEY_SOURCE, params={"pages": " 2 - 3 , 1-2 "})
+    assert resp.status_code == 200
+    assert [p["page"] for p in resp.json()["pages"]] == [1, 2, 3]
+
+    resp = await client.get(SURVEY_SOURCE, params={"pages": ""})
+    assert len(resp.json()["pages"]) == 3  # empty spec = no filter, as before
+
+
+async def test_document_source_short_doc_ignores_valid_pages(client):
+    resp = await client.get("/api/documents/demo-paper/source", params={"pages": "1-2"})
+    assert resp.status_code == 200
+    assert resp.json()["display_type"] == "short"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    ["abc", "1-", "-1", "0", "0-2", "3-1", "1--3", "1-3-5", "1,,3", "1.5", " ", "\u0661"],
+)
+async def test_document_source_rejects_malformed_pages(client, spec):
+    resp = await client.get(SURVEY_SOURCE, params={"pages": spec})
+    assert resp.status_code == 400, resp.text
+    assert "page" in resp.json()["detail"].lower()
+
+
+@pytest.mark.parametrize("spec", ["4", "2-4", "1,50"])
+async def test_document_source_rejects_pages_past_document_end(client, spec):
+    resp = await client.get(SURVEY_SOURCE, params={"pages": spec})
+    assert resp.status_code == 400, resp.text
+    assert "3 pages" in resp.json()["detail"]
+
+
+async def test_document_source_rejects_oversized_page_span(client):
+    resp = await client.get(SURVEY_SOURCE, params={"pages": f"1-{MAX_PAGES_PER_REQUEST + 1}"})
+    assert resp.status_code == 400, resp.text
+    assert f"at most {MAX_PAGES_PER_REQUEST}" in resp.json()["detail"]
+
+
+async def test_document_source_huge_page_range_rejected_without_allocating(client):
+    """Regression: ?pages=1-99999999999 was expanded into a set of every page
+    number in the range (OpenKB's parse_pages) until the server ran out of
+    memory. It must now be rejected up front, in bounded time and memory.
+
+    The moderate span goes first so that, should the bug come back, this test
+    fails on it instead of taking the whole test run down with the huge one.
+    """
+    for spec in ("1-2000000", "1-99999999999", "99999999999", "1-" + "9" * 5000):
+        started = time.monotonic()
+        tracemalloc.start()
+        try:
+            resp = await client.get(SURVEY_SOURCE, params={"pages": spec})
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        elapsed = time.monotonic() - started
+        assert resp.status_code == 400, (spec[:20], resp.text[:200])
+        assert peak < 10 * 1024 * 1024, f"{spec[:20]}: peak {peak} bytes"
+        assert elapsed < 5, f"{spec[:20]}: took {elapsed:.1f}s"
 
 
 # --- upload / url validation (no job enqueued on rejection) --------------------

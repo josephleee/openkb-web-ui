@@ -159,6 +159,10 @@ Origin/same-origin CSRF guard, path parameters are traversal-checked, and
 document/URL arguments passed to the CLI are validated. Do not expose it to an
 untrusted network.
 
+See [SECURITY.md](SECURITY.md) for the full security model, known limitations,
+safe-deployment notes, and how to report a vulnerability privately. Please do
+not report security problems in public issues.
+
 ## Development
 
 ```bash

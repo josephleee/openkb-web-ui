@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
@@ -18,6 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.types import Receive, Scope, Send
 
 from openkb_web.jobqueue import JobQueue
 from openkb_web.kb import KBContext
@@ -26,6 +29,12 @@ from openkb_web.routers import chat, documents, graph, jobs, pages, status
 KB_DIR_ENV = "OPENKB_WEB_KB_DIR"
 CORS_ENV = "OPENKB_WEB_CORS_ORIGINS"
 _DEFAULT_CORS = "http://localhost:5173,http://127.0.0.1:5173"
+ALLOWED_HOSTS_ENV = "OPENKB_WEB_ALLOWED_HOSTS"
+# Host names always served (on any port); ALLOWED_HOSTS_ENV adds to these.
+_DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1", "[::1]")
+
+# A Host header value: "[ipv6]" or a name, then an optional ":port".
+_HOST_PORT_RE = re.compile(r"(\[[^\]]*\]|[^:\[\]]*)(?::[0-9]*)?")
 
 _FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
@@ -44,8 +53,73 @@ def resolve_kb_dir(explicit: str | os.PathLike | None = None) -> Path:
     return kb_dir
 
 
+def resolve_allowed_hosts() -> list[str]:
+    """The loopback defaults plus the comma-separated ``ALLOWED_HOSTS_ENV``
+    entries: names or IPs (a port is ignored), ``*.example.com`` wildcards, or
+    ``*`` to turn the check off."""
+    hosts = list(_DEFAULT_ALLOWED_HOSTS)
+    for entry in os.environ.get(ALLOWED_HOSTS_ENV, "").split(","):
+        if not entry.strip():
+            continue
+        host = _hostname(entry)
+        if (
+            not host
+            or "*" in host[1:]
+            or (host.startswith("*") and host != "*" and not host.startswith("*."))
+        ):
+            raise RuntimeError(
+                f"Invalid {ALLOWED_HOSTS_ENV} entry {entry.strip()!r}: expected a "
+                "host name or IP (port optional), '*.example.com', or '*'"
+            )
+        if host not in hosts:
+            hosts.append(host)
+    return hosts
+
+
+def _hostname(value: str) -> str:
+    """Host header (or allowlist entry) -> lower-case name without the port;
+    ``""`` when malformed. ``[::1]:8000`` -> ``[::1]``, and a bare IPv6
+    literal (only valid in an allowlist entry) is bracketed."""
+    value = value.strip().lower()
+    if value.count(":") > 1 and not value.startswith("["):
+        value = f"[{value}]"
+    m = _HOST_PORT_RE.fullmatch(value)
+    return m.group(1) if m else ""
+
+
+class _TrustedHostMiddleware(TrustedHostMiddleware):
+    """Starlette's TrustedHostMiddleware, but IPv6-aware and case-insensitive.
+
+    Upstream takes the name as ``host.split(":")[0]``, which turns
+    ``[::1]:8000`` into ``[``, so the IPv6 loopback could never match.
+    Allowlist semantics are otherwise the same (exact names on any port,
+    ``*.example.com`` wildcards, ``*`` = allow any, no www-redirect), and
+    rejections are JSON like the rest of the API.
+    """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not self.allow_any and scope["type"] in ("http", "websocket"):
+            host = _hostname(Headers(scope=scope).get("host", ""))
+            if not any(
+                host == pattern
+                or (pattern.startswith("*.") and host.endswith(pattern[1:]))
+                for pattern in self.allowed_hosts
+            ):
+                response = JSONResponse(
+                    status_code=400,
+                    content={
+                        "detail": "Invalid host header; to serve this UI under "
+                        f"another name, add it to {ALLOWED_HOSTS_ENV}"
+                    },
+                )
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 def create_app(kb_dir: str | Path | None = None) -> FastAPI:
     kb_path = resolve_kb_dir(kb_dir)
+    allowed_hosts = resolve_allowed_hosts()
     jobqueue = JobQueue(kb_path)
     # busy_probe lets read endpoints skip even the non-blocking lock attempt
     # while our own mutation holds OpenKB's exclusive ingest lock.
@@ -97,6 +171,14 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
                 )
         return await call_next(request)
 
+    # DNS-rebinding guard. Binding to 127.0.0.1 is not enough on its own: a
+    # hostile page can re-point its own domain at 127.0.0.1 and then reach this
+    # server from the user's browser as "same-origin", which also passes the
+    # CSRF guard above. Its requests still carry that domain in Host, so only
+    # allowlisted Host names are served. Added last = outermost middleware, so
+    # it runs before CORS and the CSRF guard.
+    app.add_middleware(_TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
     for module in (status, pages, documents, jobs, chat, graph):
         app.include_router(module.router, prefix="/api")
 
@@ -145,6 +227,7 @@ def main() -> None:
 
     try:
         kb_dir = resolve_kb_dir(args.kb_dir)
+        resolve_allowed_hosts()  # fail fast on a malformed allowlist
     except RuntimeError as exc:
         parser.error(str(exc))
         return

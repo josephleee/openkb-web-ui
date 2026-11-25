@@ -137,6 +137,7 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | 知识库目录（其中必须包含 `.openkb/`）。必须显式指定，不会向上级目录自动查找。 |
 | `--host`、`--port` | 监听地址（默认 `127.0.0.1:8000`）。 |
 | `OPENKB_WEB_CORS_ORIGINS` | 允许开发前端访问的 origin 列表，用逗号分隔（默认 `http://localhost:5173,http://127.0.0.1:5173`）。 |
+| `OPENKB_WEB_ALLOWED_HOSTS` | 除 `localhost`、`127.0.0.1`、`[::1]`（任意端口）之外额外允许的 `Host` 名称，用逗号分隔；有意通过局域网主机名或反向代理域名提供服务时设置（例如 `kb.lan,*.example.com`）。其他 `Host` 的请求一律返回 400（防御 DNS 重绑定）；设为 `*` 则关闭该检查。 |
 
 模型、语言和 LLM 凭据都来自知识库自己的 `.openkb/config.yaml` 和 `.env`，本界面
 不负责管理这些配置。
@@ -144,7 +145,9 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 ## 安全模型
 
 这是一个**本地单用户工具**，和 OpenKB CLI 一样不做身份验证，默认只监听
-`127.0.0.1`。不过，即使是本地的无认证服务，浏览器里的网页也能访问到它，所以会
+`127.0.0.1`，并且只响应 `Host` 在允许列表中的请求（见 `OPENKB_WEB_ALLOWED_HOSTS`），
+因此利用 DNS 重绑定的网页无法借助浏览器访问它。不过，即使是本地的无认证服务，
+浏览器里的网页也能向它发请求，所以会
 改变状态的请求都受 Origin/同源 CSRF 检查保护，路径参数会做目录穿越检查，传给
 CLI 的文档/URL 参数也会经过校验。请不要把它暴露在不可信的网络中。
 

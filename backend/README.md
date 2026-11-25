@@ -27,6 +27,11 @@ fallback when present; otherwise run the Vite dev server against
 `http://127.0.0.1:8000` (CORS for `localhost:5173` is enabled by default,
 override with `OPENKB_WEB_CORS_ORIGINS`).
 
+Requests are only served when their `Host` header is `localhost`, `127.0.0.1`
+or `[::1]` (any port) — a DNS-rebinding guard; anything else gets 400. To serve
+under a LAN name or behind a reverse proxy, add it with
+`OPENKB_WEB_ALLOWED_HOSTS` (comma-separated, `*.example.com` wildcards allowed).
+
 For a KB to develop against without any LLM calls:
 
 ```bash

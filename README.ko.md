@@ -143,6 +143,7 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | 지식 베이스 디렉터리(`.openkb/`가 들어 있어야 합니다). 반드시 직접 지정해야 하며, 상위 디렉터리를 거슬러 올라가며 찾지 않습니다. |
 | `--host`, `--port` | 바인드 주소(기본값 `127.0.0.1:8000`). |
 | `OPENKB_WEB_CORS_ORIGINS` | 개발용 프런트엔드에 허용할 origin 목록, 쉼표로 구분(기본값 `http://localhost:5173,http://127.0.0.1:5173`). |
+| `OPENKB_WEB_ALLOWED_HOSTS` | `localhost`, `127.0.0.1`, `[::1]`(포트 무관) 외에 추가로 허용할 `Host` 이름 목록, 쉼표로 구분. LAN 호스트 이름이나 리버스 프록시 도메인으로 일부러 서비스할 때 지정합니다(예: `kb.lan,*.example.com`). 그 밖의 `Host`로 들어온 요청은 400으로 거부합니다(DNS 리바인딩 방어). `*`로 지정하면 검사를 끕니다. |
 
 모델, 언어, LLM 자격 증명은 KB 자체의 `.openkb/config.yaml`과 `.env`에서
 가져옵니다. 이 UI에서는 관리하지 않습니다.
@@ -150,7 +151,9 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 ## 보안 모델
 
 OpenKB CLI와 마찬가지로 인증이 없는 **로컬 단일 사용자용 도구**입니다. 기본적으로
-`127.0.0.1`에만 바인드합니다. 인증 없는 로컬 서버도 브라우저를 통해 접근될 수
+`127.0.0.1`에만 바인드하며, 허용 목록에 있는 `Host` 이름으로 온 요청에만 응답하므로
+(`OPENKB_WEB_ALLOWED_HOSTS` 참고) DNS 리바인딩을 노리는 웹 페이지가 브라우저를 거쳐
+접근할 수 없습니다. 그래도 인증 없는 로컬 서버는 브라우저를 통해 접근될 수
 있으므로, 상태를 바꾸는 요청은 Origin/same-origin CSRF 검사로 보호하고, 경로
 파라미터는 디렉터리 탈출(traversal) 여부를 검사하며, CLI로 넘기는 문서/URL 인자도
 검증합니다. 신뢰할 수 없는 네트워크에는 노출하지 마세요.

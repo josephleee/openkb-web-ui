@@ -143,6 +143,7 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | Knowledge base directory (must contain `.openkb/`). Explicit only — no walk-up discovery. |
 | `--host`, `--port` | Bind address (default `127.0.0.1:8000`). |
 | `OPENKB_WEB_CORS_ORIGINS` | Comma-separated allowed origins for the dev frontend (default `http://localhost:5173,http://127.0.0.1:5173`). |
+| `OPENKB_WEB_ALLOWED_HOSTS` | Comma-separated extra `Host` names to serve, on top of `localhost`, `127.0.0.1` and `[::1]` (any port) — set it when you deliberately serve the UI under a LAN name or behind a reverse proxy (e.g. `kb.lan,*.example.com`). Requests with any other `Host` get 400 (DNS-rebinding guard); `*` turns the check off. |
 
 The model, language, and LLM credentials come from the KB's own
 `.openkb/config.yaml` and `.env` — this UI does not manage them.
@@ -150,8 +151,10 @@ The model, language, and LLM credentials come from the KB's own
 ## Security model
 
 This is a **local, single-user tool** with no authentication, same as the OpenKB
-CLI. It binds to `127.0.0.1` by default. Because an unauthenticated local server
-is reachable from a browser, state-changing requests are protected by an
+CLI. It binds to `127.0.0.1` by default and only answers to allowlisted `Host`
+names (see `OPENKB_WEB_ALLOWED_HOSTS`), so a DNS-rebinding page cannot reach it
+through your browser. Because an unauthenticated local server is still reachable
+from a browser, state-changing requests are protected by an
 Origin/same-origin CSRF guard, path parameters are traversal-checked, and
 document/URL arguments passed to the CLI are validated. Do not expose it to an
 untrusted network.

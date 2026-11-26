@@ -41,12 +41,25 @@ browsing, the graph, and status work without one.
 | Option | Purpose |
 | --- | --- |
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | Knowledge base directory (must contain `.openkb/`). Explicit only, no walk-up discovery. |
-| `--host`, `--port` | Bind address (default `127.0.0.1:8000`). |
+| `--host`, `--port` | Bind address (default `127.0.0.1:8000`). Any `--host` other than a loopback address (`127.0.0.0/8`, `::1`, `localhost`), including `0.0.0.0` and `::`, is refused unless an access token is set. |
+| `OPENKB_WEB_TOKEN` | Optional access token, off by default. When set, every API request needs it: the browser shows a sign-in screen, API clients send `Authorization: Bearer <token>`. At least 16 printable ASCII characters. |
+| `--token-file` / `OPENKB_WEB_TOKEN_FILE` | Read the access token from a file instead (keeps it out of shell history and the environment). No option takes the token itself, since it would show in the process list. |
 | `OPENKB_WEB_ALLOWED_HOSTS` | Extra `Host` names to serve besides `localhost`, `127.0.0.1` and `[::1]`, e.g. a LAN name or a reverse proxy (`kb.lan,*.example.com`). Anything else gets 400 (DNS-rebinding guard). |
 | `OPENKB_WEB_CORS_ORIGINS` | Allowed origins for a separately served frontend (default: the Vite dev server on `:5173`). |
 
-This is a **local, single-user tool with no authentication**, like the OpenKB
-CLI. Do not expose it to an untrusted network. See the
+This is a **local, single-user tool**. Authentication is off by default, like
+the OpenKB CLI; set an access token whenever anyone else can reach the port
+(it is required for a non-loopback `--host`):
+
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/.openkb-web-token
+chmod 600 ~/.openkb-web-token
+openkb-web --kb-dir /path/to/your/kb --token-file ~/.openkb-web-token
+```
+
+The token is one shared secret, not user accounts, and the server speaks plain
+HTTP: for remote access use an SSH tunnel or a TLS-terminating reverse proxy.
+See the
 [security policy](https://github.com/josephleee/openkb-web-ui/blob/main/SECURITY.md)
 for the full model and how to report a vulnerability.
 

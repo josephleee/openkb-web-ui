@@ -160,7 +160,9 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 | Variable | Purpose |
 | --- | --- |
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | Knowledge base directory (must contain `.openkb/`). Explicit only — no walk-up discovery. |
-| `--host`, `--port` | Bind address (default `127.0.0.1:8000`). |
+| `--host`, `--port` | Bind address (default `127.0.0.1:8000`). Any `--host` other than a loopback address (`127.0.0.0/8`, `::1`, `localhost`), including `0.0.0.0` and `::`, is refused unless an access token is set. |
+| `OPENKB_WEB_TOKEN` | Optional access token, off by default. When set, every API request needs it: the browser shows a sign-in screen and then keeps an HttpOnly session cookie; API clients send `Authorization: Bearer <token>`. At least 16 printable ASCII characters, no spaces. |
+| `--token-file` / `OPENKB_WEB_TOKEN_FILE` | Read the access token from a file instead, which keeps it out of your shell history and the server's environment. There is deliberately no option that takes the token itself (it would show in the process list). |
 | `OPENKB_WEB_CORS_ORIGINS` | Comma-separated allowed origins for the dev frontend (default `http://localhost:5173,http://127.0.0.1:5173`). |
 | `OPENKB_WEB_ALLOWED_HOSTS` | Comma-separated extra `Host` names to serve, on top of `localhost`, `127.0.0.1` and `[::1]` (any port) — set it when you deliberately serve the UI under a LAN name or behind a reverse proxy (e.g. `kb.lan,*.example.com`). Requests with any other `Host` get 400 (DNS-rebinding guard); `*` turns the check off. |
 
@@ -169,14 +171,28 @@ The model, language, and LLM credentials come from the KB's own
 
 ## Security model
 
-This is a **local, single-user tool** with no authentication, same as the OpenKB
-CLI. It binds to `127.0.0.1` by default and only answers to allowlisted `Host`
-names (see `OPENKB_WEB_ALLOWED_HOSTS`), so a DNS-rebinding page cannot reach it
-through your browser. Because an unauthenticated local server is still reachable
-from a browser, state-changing requests are protected by an
-Origin/same-origin CSRF guard, path parameters are traversal-checked, and
-document/URL arguments passed to the CLI are validated. Do not expose it to an
-untrusted network.
+This is a **local, single-user tool**. By default it has no authentication, same
+as the OpenKB CLI: it binds to `127.0.0.1` and only answers to allowlisted
+`Host` names (see `OPENKB_WEB_ALLOWED_HOSTS`), so a DNS-rebinding page cannot
+reach it through your browser. Because a local server is still reachable from a
+browser, state-changing requests are protected by an Origin/same-origin CSRF
+guard, path parameters are traversal-checked, and document/URL arguments passed
+to the CLI are validated.
+
+An **optional access token** protects the whole API when others can reach the
+port. It is required for any non-loopback `--host`:
+
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/.openkb-web-token
+chmod 600 ~/.openkb-web-token
+openkb-web --kb-dir /path/to/kb --token-file ~/.openkb-web-token
+```
+
+The token is a single shared secret, not user accounts, and the server speaks
+plain HTTP, so the token is not protected in transit. For access from another
+machine, keep the default bind and use an SSH tunnel
+(`ssh -L 8000:127.0.0.1:8000 <host>`) or a TLS-terminating reverse proxy, with a
+token whenever anyone else can reach the port.
 
 See [SECURITY.md](SECURITY.md) for the full security model, known limitations,
 safe-deployment notes, and how to report a vulnerability privately. Please do
@@ -208,7 +224,8 @@ to revisit it when OpenKB changes its layout.
 
 ## Non-goals (v1)
 
-Multi-KB switching in one server, authentication, the skill/deck generators,
+Multi-KB switching in one server, user accounts and login providers (only an
+optional shared access token is supported), the skill/deck generators,
 LLM-based semantic lint, and Docker packaging are intentionally out of scope for
 now.
 

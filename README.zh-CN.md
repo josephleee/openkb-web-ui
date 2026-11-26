@@ -152,7 +152,9 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 | 变量 | 说明 |
 | --- | --- |
 | `--kb-dir` / `OPENKB_WEB_KB_DIR` | 知识库目录（其中必须包含 `.openkb/`）。必须显式指定，不会向上级目录自动查找。 |
-| `--host`、`--port` | 监听地址（默认 `127.0.0.1:8000`）。 |
+| `--host`、`--port` | 监听地址（默认 `127.0.0.1:8000`）。如果 `--host` 不是回环地址（`127.0.0.0/8`、`::1`、`localhost`），包括 `0.0.0.0` 和 `::`，在未设置访问令牌时会拒绝启动。 |
+| `OPENKB_WEB_TOKEN` | 可选的访问令牌，默认关闭。设置后，所有 API 请求都需要它：浏览器先显示一次登录页，之后使用 HttpOnly 会话 Cookie；API 客户端发送 `Authorization: Bearer <token>`。至少 16 个可打印 ASCII 字符，不能包含空格。 |
+| `--token-file` / `OPENKB_WEB_TOKEN_FILE` | 改为从文件读取访问令牌，令牌不会留在 shell 历史和服务进程的环境变量中。有意不提供直接接收令牌值的选项（它会出现在进程列表里）。 |
 | `OPENKB_WEB_CORS_ORIGINS` | 允许开发前端访问的 origin 列表，用逗号分隔（默认 `http://localhost:5173,http://127.0.0.1:5173`）。 |
 | `OPENKB_WEB_ALLOWED_HOSTS` | 除 `localhost`、`127.0.0.1`、`[::1]`（任意端口）之外额外允许的 `Host` 名称，用逗号分隔；有意通过局域网主机名或反向代理域名提供服务时设置（例如 `kb.lan,*.example.com`）。其他 `Host` 的请求一律返回 400（防御 DNS 重绑定）；设为 `*` 则关闭该检查。 |
 
@@ -161,12 +163,24 @@ uv run openkb-web --kb-dir /tmp/demo-kb   # then open http://127.0.0.1:8000
 
 ## 安全模型
 
-这是一个**本地单用户工具**，和 OpenKB CLI 一样不做身份验证，默认只监听
+这是一个**本地单用户工具**。默认情况下它和 OpenKB CLI 一样不做身份验证：只监听
 `127.0.0.1`，并且只响应 `Host` 在允许列表中的请求（见 `OPENKB_WEB_ALLOWED_HOSTS`），
-因此利用 DNS 重绑定的网页无法借助浏览器访问它。不过，即使是本地的无认证服务，
-浏览器里的网页也能向它发请求，所以会
-改变状态的请求都受 Origin/同源 CSRF 检查保护，路径参数会做目录穿越检查，传给
-CLI 的文档/URL 参数也会经过校验。请不要把它暴露在不可信的网络中。
+因此利用 DNS 重绑定的网页无法借助浏览器访问它。不过，浏览器里的网页仍然能向本地
+服务发请求，所以会改变状态的请求都受 Origin/同源 CSRF 检查保护，路径参数会做目录
+穿越检查，传给 CLI 的文档/URL 参数也会经过校验。
+
+如果其他人能访问这个端口，可以用**可选的访问令牌**保护整个 API。使用非回环地址的
+`--host` 时必须设置令牌：
+
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > ~/.openkb-web-token
+chmod 600 ~/.openkb-web-token
+openkb-web --kb-dir /path/to/kb --token-file ~/.openkb-web-token
+```
+
+令牌是单个共享密钥，不是用户账户；服务使用明文 HTTP，令牌在传输中不受保护。需要
+从其他机器访问时，请保持默认监听地址，通过 SSH 隧道（`ssh -L 8000:127.0.0.1:8000 <host>`）
+或终止 TLS 的反向代理访问；只要其他人能访问该端口，就同时设置令牌。
 
 完整的安全模型、已知局限、安全部署建议，以及如何私下报告漏洞，请参阅
 [SECURITY.md](SECURITY.md)（英文）。请不要在公开 issue 中报告安全问题。
@@ -197,8 +211,9 @@ cd frontend && npm ci && npm run build && cd ../backend && uv build
 
 ## 暂不支持（v1）
 
-单个服务内切换多个知识库、身份验证、skill/deck 生成器、基于 LLM 的语义 lint，
-以及 Docker 打包，目前都有意不在范围之内。
+单个服务内切换多个知识库、用户账户和第三方登录（目前只支持一个可选的共享访问
+令牌）、skill/deck 生成器、基于 LLM 的语义 lint，以及 Docker 打包，目前都有意不在
+范围之内。
 
 ## 许可证
 

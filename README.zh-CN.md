@@ -85,13 +85,30 @@ openkb-web-ui/
 
 ## 快速开始
 
-**环境要求：** Python ≥ 3.11 和 [`uv`](https://docs.astral.sh/uv/)、Node ≥ 20，以及
-一个已有的 OpenKB 知识库（先 `pip install openkb`，再 `openkb init`）。对话、
-query 和文档导入需要为知识库配置 `LLM_API_KEY`（放在 `<kb>/.env` 或
-`~/.config/openkb/.env` 中），做法和 OpenKB CLI 完全一样；浏览 wiki、查看图谱和
-状态则不需要密钥。
+**环境要求：** Python ≥ 3.11，以及一个已有的 OpenKB 知识库（先 `pip install openkb`，
+再 `openkb init`）。对话、query 和文档导入需要为知识库配置 `LLM_API_KEY`（放在
+`<kb>/.env` 或 `~/.config/openkb/.env` 中），做法和 OpenKB CLI 完全一样；浏览
+wiki、查看图谱和状态则不需要密钥。
 
-### 生产方式（由后端托管构建好的前端）
+### 从 PyPI 安装（自首个版本起）
+
+从首个 PyPI 版本起，整个应用（后端加上构建好的前端）作为一个 Python 包
+`openkb-web` 发布，既不需要 Node.js，也不需要源码：
+
+```bash
+uvx openkb-web --kb-dir /path/to/your/kb        # run it without installing (uv)
+pipx run openkb-web --kb-dir /path/to/your/kb   # same, with pipx
+
+# or install it
+pip install openkb-web
+openkb-web --kb-dir /path/to/your/kb            # then open http://127.0.0.1:8000
+```
+
+在该版本发布之前，或者想修改代码时，请按下面的方式从源码运行。
+
+### 从源码：生产方式（由后端托管构建好的前端）
+
+以下方式需要 [`uv`](https://docs.astral.sh/uv/) 和 Node ≥ 20。
 
 ```bash
 # 1. Build the frontend
@@ -105,7 +122,7 @@ uv sync
 uv run openkb-web --kb-dir /path/to/your/kb   # then open http://127.0.0.1:8000
 ```
 
-### 开发模式（Vite 开发服务器 + 热更新）
+### 从源码：开发模式（Vite 开发服务器 + 热更新）
 
 ```bash
 # Terminal 1 — backend API on :8000
@@ -162,7 +179,15 @@ cd backend && uv run pytest -q
 
 # Frontend checks
 cd frontend && npx tsc --noEmit && npm run build && npx vitest run
+
+# Python package (sdist + wheel in backend/dist, with the frontend inside)
+cd frontend && npm ci && npm run build && cd ../backend && uv build
 ```
+
+`uv build` 会把 `frontend/dist` 打包进去；如果还没有构建前端，构建会直接失败。
+发布已经自动化：在 GitHub 上发布 release 时，
+[`.github/workflows/release.yml`](.github/workflows/release.yml) 会构建这两个文件，
+并通过 PyPI 可信发布（trusted publishing）上传。
 
 ## 兼容性
 

@@ -20,3 +20,9 @@ frontend/dist/
 
 # Local scratch
 demo-kb/
+
+# Package build output (uv build / python -m build in backend/)
+backend/dist/
+backend/build/
+# Built UI only ever lands here inside sdists/wheels (see backend/hatch_build.py)
+backend/openkb_web/static/

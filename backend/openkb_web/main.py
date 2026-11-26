@@ -8,6 +8,7 @@ context (``_setup_llm_key`` stashes litellm globals at startup).
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import re
 from contextlib import asynccontextmanager
@@ -37,7 +38,13 @@ _DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 # A Host header value: "[ipv6]" or a name, then an optional ":port".
 _HOST_PORT_RE = re.compile(r"(\[[^\]]*\]|[^:\[\]]*)(?::[0-9]*)?")
 
-_FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+_PACKAGE_DIR = Path(__file__).resolve().parent
+# The built UI that hatch_build.py bundles into the sdist and wheel.
+_PACKAGED_FRONTEND = _PACKAGE_DIR / "static"
+# `npm run build` output, for running from a source checkout.
+_CHECKOUT_FRONTEND = _PACKAGE_DIR.parents[1] / "frontend" / "dist"
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_kb_dir(explicit: str | os.PathLike | None = None) -> Path:
@@ -197,10 +204,25 @@ def _origin_trusted(request, origin: str) -> bool:
     return bool(host) and urlparse(origin).netloc == host
 
 
+def find_frontend_dist() -> Path | None:
+    """The built UI to serve: the copy bundled in the installed package, else
+    ``frontend/dist`` of a source checkout; ``None`` when neither exists."""
+    for candidate in (_PACKAGED_FRONTEND, _CHECKOUT_FRONTEND):
+        if (candidate / "index.html").is_file():
+            return candidate.resolve()
+    return None
+
+
 def _mount_frontend(app: FastAPI) -> None:
-    """Serve ../frontend/dist with an SPA fallback when a build exists."""
-    dist = _FRONTEND_DIST.resolve()
-    if not (dist / "index.html").is_file():
+    """Serve the built UI with an SPA fallback when a build exists."""
+    dist = find_frontend_dist()
+    if dist is None:
+        logger.warning(
+            "No built frontend found (looked in %s and %s); serving the API "
+            "only. Run `npm run build` in frontend/, or use the Vite dev server.",
+            _PACKAGED_FRONTEND,
+            _CHECKOUT_FRONTEND,
+        )
         return
 
     # Registered after the API routers, so /api/* always wins.

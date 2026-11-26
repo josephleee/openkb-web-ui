@@ -1801,12 +1801,13 @@ wheels = [
 ]
 
 [[package]]
-name = "openkb-web-backend"
+name = "openkb-web"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "openkb" },
+    { name = "pageindex" },
     { name = "portalocker" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1823,6 +1824,7 @@ dev = [
 requires-dist = [
     { name = "fastapi" },
     { name = "openkb", specifier = "==0.4.3" },
+    { name = "pageindex", specifier = "==0.3.0.dev1" },
     { name = "portalocker" },
     { name = "python-multipart" },
     { name = "uvicorn", extras = ["standard"] },

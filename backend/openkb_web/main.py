@@ -3,6 +3,9 @@
 KB selection is explicit only: ``--kb-dir`` CLI arg or ``OPENKB_WEB_KB_DIR``
 env var — no walk-up magic. One server process serves one KB / one credential
 context (``_setup_llm_key`` stashes litellm globals at startup).
+
+Authentication is optional (see openkb_web.auth); ``main`` refuses to listen
+on a non-loopback address unless a token is configured.
 """
 
 from __future__ import annotations
@@ -23,10 +26,19 @@ from starlette.datastructures import Headers
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Receive, Scope, Send
 
+from openkb_web.auth import (
+    GENERATE_HINT,
+    TOKEN_ENV,
+    TOKEN_FILE_ENV,
+    TokenAuth,
+    TokenAuthMiddleware,
+    is_loopback_host,
+    resolve_token,
+)
 from openkb_web.jobqueue import JobQueue
 from openkb_web.kb import KBContext
 from openkb_web.openkb_guard import install_parse_pages_guard
-from openkb_web.routers import chat, documents, graph, jobs, pages, status
+from openkb_web.routers import auth, chat, documents, graph, jobs, pages, status
 
 KB_DIR_ENV = "OPENKB_WEB_KB_DIR"
 CORS_ENV = "OPENKB_WEB_CORS_ORIGINS"
@@ -128,6 +140,7 @@ class _TrustedHostMiddleware(TrustedHostMiddleware):
 def create_app(kb_dir: str | Path | None = None) -> FastAPI:
     kb_path = resolve_kb_dir(kb_dir)
     allowed_hosts = resolve_allowed_hosts()
+    token = resolve_token()
     # Temporary: bound openkb's parse_pages for the chat agent's page tool
     # (see openkb_guard). Process-global and idempotent; never raises.
     install_parse_pages_guard()
@@ -152,6 +165,14 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
     app.state.jobqueue = jobqueue
     app.state.chat_inflight = set()
     app.state.graph_cache = None
+    # None = authentication off (no token configured).
+    app.state.auth = TokenAuth(token) if token else None
+
+    # Token check for every /api request except /api/auth/*. Added first =
+    # innermost: CORS (below) answers preflights before it and adds its
+    # headers to the 401s; the CSRF guard and Host allowlist run before both.
+    if app.state.auth is not None:
+        app.add_middleware(TokenAuthMiddleware, auth=app.state.auth)
 
     origins = [
         o.strip()
@@ -166,10 +187,13 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    # CSRF guard: the server is unauthenticated by design (local trusted tool),
-    # so a malicious page in the user's browser could otherwise fire state-
+    # CSRF guard: without a token the server is unauthenticated (local trusted
+    # tool), and with one the browser holds an ambient session cookie; either
+    # way a malicious page in the user's browser could otherwise fire state-
     # changing POSTs cross-origin (CORS blocks reading the reply, not the side
-    # effect). Reject any browser-originated mutation whose Origin is neither
+    # effect). SameSite=Strict keeps the cookie off cross-site requests, but
+    # another port on the same host is the same site, so this check is still
+    # needed. Reject any browser-originated mutation whose Origin is neither
     # same-origin nor in the allowlist. Non-browser clients send no Origin and
     # pass through unchanged.
     @app.middleware("http")
@@ -190,7 +214,7 @@ def create_app(kb_dir: str | Path | None = None) -> FastAPI:
     # it runs before CORS and the CSRF guard.
     app.add_middleware(_TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
-    for module in (status, pages, documents, jobs, chat, graph):
+    for module in (auth, status, pages, documents, jobs, chat, graph):
         app.include_router(module.router, prefix="/api")
 
     _mount_frontend(app)
@@ -237,6 +261,19 @@ def _mount_frontend(app: FastAPI) -> None:
         return FileResponse(dist / "index.html")
 
 
+class _RefuseTokenArgument(argparse.Action):
+    """``--token`` exists only to be refused. A token given on the command line
+    shows in the process list and shell history; and without this option,
+    argparse's prefix matching would read ``--token X`` as ``--token-file X``
+    and print X back in a "cannot read file" error."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(
+            "--token is not supported: a token on the command line shows in the "
+            f"process list. Set {TOKEN_ENV}, or pass --token-file PATH."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="openkb-web", description="Web UI server for an OpenKB knowledge base"
@@ -246,16 +283,45 @@ def main() -> None:
         default=None,
         help=f"Knowledge base directory (default: ${KB_DIR_ENV})",
     )
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind address (default: 127.0.0.1). Anything other than a loopback "
+        "address needs an access token.",
+    )
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--token-file",
+        default=None,
+        metavar="PATH",
+        help="File holding the access token that turns on authentication "
+        f"(or set ${TOKEN_ENV} or ${TOKEN_FILE_ENV}). There is deliberately no "
+        "option taking the token itself, which would show in the process list.",
+    )
+    parser.add_argument(
+        "--token", nargs="?", action=_RefuseTokenArgument, help=argparse.SUPPRESS
+    )
     parser.add_argument("--reload", action="store_true", help="Dev auto-reload")
     args = parser.parse_args()
 
+    if args.token_file is not None:
+        # Through the environment so --reload worker processes see it too.
+        os.environ[TOKEN_FILE_ENV] = str(Path(args.token_file).expanduser().resolve())
     try:
         kb_dir = resolve_kb_dir(args.kb_dir)
         resolve_allowed_hosts()  # fail fast on a malformed allowlist
+        token_configured = resolve_token() is not None  # fail fast on a bad token
     except RuntimeError as exc:
         parser.error(str(exc))
+        return
+    if not token_configured and not is_loopback_host(args.host):
+        parser.error(
+            f"refusing to listen on {args.host} without an access token: anyone "
+            "who can reach that address could read and change the knowledge base "
+            f"and spend its LLM key. Set {TOKEN_ENV}, or put the token in a file "
+            f"and pass --token-file PATH (or set {TOKEN_FILE_ENV}); or keep the "
+            f"default --host 127.0.0.1. {GENERATE_HINT}"
+        )
         return
     os.environ[KB_DIR_ENV] = str(kb_dir)  # visible to --reload worker processes
 

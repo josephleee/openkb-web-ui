@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from openkb_web.auth import TOKEN_ENV, TOKEN_FILE_ENV
+
 MAX_BUFFERED_LINES = 2000
 TERMINAL_STATES = ("succeeded", "failed", "skipped")
 
@@ -55,8 +57,11 @@ def _openkb_argv() -> list[str]:
 
 
 def openkb_env(kb_dir: Path) -> dict[str, str]:
-    """Environment for an openkb subprocess: KB override + unbuffered stdout."""
+    """Environment for an openkb subprocess: KB override + unbuffered stdout,
+    without the web UI's access token (the CLI has no use for it)."""
     env = dict(os.environ)
+    env.pop(TOKEN_ENV, None)
+    env.pop(TOKEN_FILE_ENV, None)
     env["OPENKB_DIR"] = str(kb_dir)
     env["PYTHONUNBUFFERED"] = "1"
     return env

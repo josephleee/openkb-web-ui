@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
 import { getStatus } from "../api/client";
+import { useAuth } from "../lib/authContext";
 import { useTheme } from "../lib/theme";
 
 const NAV = [
@@ -58,6 +59,7 @@ function abbreviateHome(path: string): string {
 
 export default function AppLayout() {
   const { theme, toggle } = useTheme();
+  const { authRequired, signOut } = useAuth();
   const { data: status } = useQuery({
     queryKey: ["status"],
     queryFn: getStatus,
@@ -198,6 +200,28 @@ export default function AppLayout() {
                   {status.busy ? "Working" : "Idle"}
                 </span>
               </div>
+              {authRequired && (
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-[15px] w-[15px]"
+                    aria-hidden="true"
+                  >
+                    <path d="M6.5 2.5H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h2.5M10.5 11 13.5 8l-3-3M13.5 8H6.5" />
+                  </svg>
+                </button>
+              )}
             </>
           ) : (
             <span className="text-xs text-ink-3">Connecting to backend…</span>

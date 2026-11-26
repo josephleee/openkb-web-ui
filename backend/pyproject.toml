@@ -1,14 +1,46 @@
 [project]
-name = "openkb-web-backend"
+name = "openkb-web"
 version = "0.1.0"
-description = "FastAPI backend for the OpenKB web UI"
+description = "Self-hostable web UI for OpenKB: browse the wiki, chat over it, manage documents, and explore the knowledge graph."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Joseph Lee" }]
+keywords = [
+    "openkb",
+    "knowledge-base",
+    "wiki",
+    "llm",
+    "web-ui",
+    "self-hosted",
+    "fastapi",
+    "react",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
 dependencies = [
     # openkb pins its runtime deps exactly (litellm==1.87.2, openai-agents==0.17.3, ...);
     # the in-process reads couple to some private helpers, so the pin matters.
     "openkb==0.4.3",
+    # openkb 0.4.3 pins this pre-release. uv only takes a pre-release that a
+    # first-party requirement names explicitly, so repeating the pin here is
+    # what lets a plain `uvx openkb-web` / `uv tool install` resolve (the
+    # [tool.uv] setting below only applies inside this project). Drop it with
+    # the openkb bump that no longer needs it.
+    "pageindex==0.3.0.dev1",
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
@@ -16,6 +48,13 @@ dependencies = [
     # acquisition in kb.read_locked (openkb.locks only exposes blocking flock).
     "portalocker",
 ]
+
+[project.urls]
+Homepage = "https://github.com/josephleee/openkb-web-ui"
+Repository = "https://github.com/josephleee/openkb-web-ui"
+Issues = "https://github.com/josephleee/openkb-web-ui/issues"
+Security = "https://github.com/josephleee/openkb-web-ui/blob/main/SECURITY.md"
+Releases = "https://github.com/josephleee/openkb-web-ui/releases"
 
 [project.scripts]
 openkb-web = "openkb_web.main:main"
@@ -33,8 +72,23 @@ dev = [
 prerelease = "allow"
 
 [build-system]
-requires = ["hatchling"]
+# >=1.27: SPDX `license` expression + `license-files` (PEP 639).
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
+
+# hatch_build.py copies the built frontend (../frontend/dist) into the sdist
+# and wheel as openkb_web/static/, and fails a non-editable build without it.
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build]
+# openkb_web/static/ is only ever added by the hook above (it already exists
+# when a wheel is built from the sdist); excluding it here keeps it from being
+# picked up a second time by the normal file selection.
+exclude = ["/openkb_web/static"]
+
+[tool.hatch.build.targets.sdist]
+# The tests need the repo's scripts/ (demo KB builder), so they stay in git.
+only-include = ["openkb_web", "hatch_build.py", "README.md", "LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["openkb_web"]

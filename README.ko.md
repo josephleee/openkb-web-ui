@@ -91,13 +91,30 @@ openkb-web-ui/
 
 ## 빠른 시작
 
-**준비물:** Python ≥ 3.11과 [`uv`](https://docs.astral.sh/uv/), Node ≥ 20, 그리고
-이미 만들어 둔 OpenKB 지식 베이스(`pip install openkb` 후 `openkb init`)가
-필요합니다. 채팅, query, 문서 수집에는 OpenKB CLI와 똑같은 방식으로 KB에
-`LLM_API_KEY`가 설정되어 있어야 합니다(`<kb>/.env` 또는
+**준비물:** Python ≥ 3.11과 이미 만들어 둔 OpenKB 지식 베이스(`pip install openkb`
+후 `openkb init`)가 필요합니다. 채팅, query, 문서 수집에는 OpenKB CLI와 똑같은
+방식으로 KB에 `LLM_API_KEY`가 설정되어 있어야 합니다(`<kb>/.env` 또는
 `~/.config/openkb/.env`). 위키 열람, 그래프, 현황 조회는 키 없이도 동작합니다.
 
-### 프로덕션 방식 (백엔드가 빌드된 프런트엔드를 서빙)
+### PyPI에서 설치 (첫 릴리스부터)
+
+첫 PyPI 릴리스부터는 백엔드와 빌드된 프런트엔드가 `openkb-web`이라는 파이썬
+패키지 하나로 배포되므로, Node.js도 소스 체크아웃도 필요 없습니다.
+
+```bash
+uvx openkb-web --kb-dir /path/to/your/kb        # run it without installing (uv)
+pipx run openkb-web --kb-dir /path/to/your/kb   # same, with pipx
+
+# or install it
+pip install openkb-web
+openkb-web --kb-dir /path/to/your/kb            # then open http://127.0.0.1:8000
+```
+
+그 릴리스가 나오기 전이거나 코드를 직접 고치려면 아래처럼 소스에서 실행하세요.
+
+### 소스에서: 프로덕션 방식 (백엔드가 빌드된 프런트엔드를 서빙)
+
+여기서부터는 [`uv`](https://docs.astral.sh/uv/)와 Node ≥ 20이 필요합니다.
 
 ```bash
 # 1. Build the frontend
@@ -111,7 +128,7 @@ uv sync
 uv run openkb-web --kb-dir /path/to/your/kb   # then open http://127.0.0.1:8000
 ```
 
-### 개발 모드 (Vite 개발 서버 + 핫 리로드)
+### 소스에서: 개발 모드 (Vite 개발 서버 + 핫 리로드)
 
 ```bash
 # Terminal 1 — backend API on :8000
@@ -170,7 +187,15 @@ cd backend && uv run pytest -q
 
 # Frontend checks
 cd frontend && npx tsc --noEmit && npm run build && npx vitest run
+
+# Python package (sdist + wheel in backend/dist, with the frontend inside)
+cd frontend && npm ci && npm run build && cd ../backend && uv build
 ```
+
+`uv build`는 `frontend/dist`를 패키지 안에 넣으며, 프런트엔드를 먼저 빌드하지
+않았다면 실패합니다. 배포는 자동화되어 있습니다. GitHub 릴리스를 게시하면
+[`.github/workflows/release.yml`](.github/workflows/release.yml)이 두 파일을
+빌드해 PyPI 신뢰할 수 있는 게시(trusted publishing)로 업로드합니다.
 
 ## 호환성
 

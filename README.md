@@ -91,13 +91,32 @@ openkb-web-ui/
 
 ## Quick start
 
-**Prerequisites:** Python ≥ 3.11 with [`uv`](https://docs.astral.sh/uv/), Node ≥ 20,
-and an existing OpenKB knowledge base (`pip install openkb` then `openkb init`).
-Chat, query, and document ingestion need an `LLM_API_KEY` configured for the KB
-(in `<kb>/.env` or `~/.config/openkb/.env`) exactly as the OpenKB CLI expects;
-browsing, the graph, and status work without one.
+**Prerequisites:** Python ≥ 3.11 and an existing OpenKB knowledge base
+(`pip install openkb` then `openkb init`). Chat, query, and document ingestion
+need an `LLM_API_KEY` configured for the KB (in `<kb>/.env` or
+`~/.config/openkb/.env`) exactly as the OpenKB CLI expects; browsing, the graph,
+and status work without one.
 
-### Production-style (backend serves the built frontend)
+### Install from PyPI (from the first release)
+
+From its first PyPI release on, the whole app (the backend plus the built
+frontend) ships as one Python package, `openkb-web`, so you need neither Node.js
+nor a source checkout:
+
+```bash
+uvx openkb-web --kb-dir /path/to/your/kb        # run it without installing (uv)
+pipx run openkb-web --kb-dir /path/to/your/kb   # same, with pipx
+
+# or install it
+pip install openkb-web
+openkb-web --kb-dir /path/to/your/kb            # then open http://127.0.0.1:8000
+```
+
+Until that release is out, or to work on the code, run it from source as below.
+
+### From source: production-style (backend serves the built frontend)
+
+These need [`uv`](https://docs.astral.sh/uv/) and Node ≥ 20.
 
 ```bash
 # 1. Build the frontend
@@ -111,7 +130,7 @@ uv sync
 uv run openkb-web --kb-dir /path/to/your/kb   # then open http://127.0.0.1:8000
 ```
 
-### Development (Vite dev server + hot reload)
+### From source: development (Vite dev server + hot reload)
 
 ```bash
 # Terminal 1 — backend API on :8000
@@ -171,7 +190,15 @@ cd backend && uv run pytest -q
 
 # Frontend checks
 cd frontend && npx tsc --noEmit && npm run build && npx vitest run
+
+# Python package (sdist + wheel in backend/dist, with the frontend inside)
+cd frontend && npm ci && npm run build && cd ../backend && uv build
 ```
+
+`uv build` embeds `frontend/dist` in the package and fails if the frontend has
+not been built. Publishing is automated: when a GitHub release is published,
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds both
+files and uploads them to PyPI with trusted publishing.
 
 ## Compatibility
 

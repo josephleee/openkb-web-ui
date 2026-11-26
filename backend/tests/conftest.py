@@ -136,6 +136,16 @@ esac
 """
 
 
+@pytest.fixture(autouse=True)
+def _no_access_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run every test with authentication off unless it opts in, whatever the
+    developer's shell exports (test_auth.py sets a token explicitly)."""
+    from openkb_web.auth import TOKEN_ENV, TOKEN_FILE_ENV
+
+    monkeypatch.delenv(TOKEN_ENV, raising=False)
+    monkeypatch.delenv(TOKEN_FILE_ENV, raising=False)
+
+
 @pytest.fixture
 def kb_dir(tmp_path: Path) -> Path:
     kb = tmp_path / "kb"

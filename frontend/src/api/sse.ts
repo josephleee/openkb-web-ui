@@ -1,4 +1,5 @@
-import { ApiError, extractDetail } from "./http";
+import { recheckAuth } from "./auth";
+import { responseError } from "./http";
 
 export interface SseParser {
   /** Feed a decoded chunk; may contain any number of partial/complete frames. */
@@ -77,7 +78,7 @@ export async function postSse<T>(
     body: JSON.stringify(body),
     signal,
   });
-  if (!res.ok) throw new ApiError(res.status, await extractDetail(res));
+  if (!res.ok) throw await responseError(res, url);
   if (!res.body) throw new Error("Streaming response has no body");
 
   const reader = res.body.getReader();
@@ -123,6 +124,11 @@ export function openEventStream<T>(
     }
     onEvent(parsed);
   };
-  source.onerror = () => hooks?.onConnectionError?.();
+  source.onerror = () => {
+    // EventSource hides the status code, and gives up for good (CLOSED) on an
+    // HTTP error such as a 401 after the session ended; ask the server.
+    if (source.readyState === EventSource.CLOSED) void recheckAuth();
+    hooks?.onConnectionError?.();
+  };
   return () => source.close();
 }
